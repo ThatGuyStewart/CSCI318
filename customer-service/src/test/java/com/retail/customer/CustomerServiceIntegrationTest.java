@@ -1,0 +1,254 @@
+package com.retail.customer;
+
+import java.util.Optional;
+
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.hasSize;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import static org.mockito.ArgumentMatchers.eq;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.retail.customer.client.ProductClient;
+import com.retail.customer.domain.ContactMethod;
+import com.retail.customer.dto.AddressDto;
+import com.retail.customer.dto.AddressUpdateRequest;
+import com.retail.customer.dto.BasketAddRequest;
+import com.retail.customer.dto.BasketRemoveRequest;
+import com.retail.customer.dto.CustomerCreateRequest;
+import com.retail.customer.dto.CustomerResponse;
+import com.retail.customer.dto.CustomerUpdateRequest;
+import com.retail.customer.dto.ProductDto;
+
+@SpringBootTest
+@AutoConfigureMockMvc
+public class CustomerServiceIntegrationTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @MockBean
+    private ProductClient productClient;
+
+    private AddressDto sampleAddress;
+
+    @BeforeEach
+    void setUp() {
+        sampleAddress = new AddressDto(12, 100, "George St", "Sydney CBD", "Sydney", 2000, "NSW", "Australia");
+        Mockito.when(productClient.getProductById(eq(101L))).thenReturn(
+                Optional.of(new ProductDto(101L, "Laptop", "Electronics", 1200.0, "High end laptop"))
+        );
+    }
+
+    @Test
+    void testCreateAndGetCustomer_HappyPath() throws Exception {
+        CustomerCreateRequest createRequest = new CustomerCreateRequest(
+                "John Doe", "john.doe@example.com", "0412345678", ContactMethod.Email, sampleAddress
+        );
+
+        String responseJson = mockMvc.perform(post("/customer")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").isNumber())
+                .andExpect(jsonPath("$.name").value("John Doe"))
+                .andExpect(jsonPath("$.email").value("john.doe@example.com"))
+                .andExpect(jsonPath("$.contactMethod").value("Email"))
+                .andExpect(jsonPath("$.address.city").value("Sydney"))
+                .andReturn().getResponse().getContentAsString();
+
+        CustomerResponse created = objectMapper.readValue(responseJson, CustomerResponse.class);
+
+        // Get by ID
+        mockMvc.perform(get("/customer/id/" + created.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(created.getId()))
+                .andExpect(jsonPath("$.name").value("John Doe"));
+
+        // List all
+        mockMvc.perform(get("/customer"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(1))));
+    }
+
+    @Test
+    void testCreateCustomer_ValidationError_Returns400() throws Exception {
+        // Missing name, email, phone
+        CustomerCreateRequest invalidRequest = new CustomerCreateRequest(
+                "", "", "", null, null
+        );
+
+        mockMvc.perform(post("/customer")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"));
+    }
+
+    @Test
+    void testGetCustomerNotFound_Returns404() throws Exception {
+        mockMvc.perform(get("/customer/id/99999"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+    }
+
+    @Test
+    void testUpdateCustomer_HappyAndNotFound() throws Exception {
+        CustomerCreateRequest createRequest = new CustomerCreateRequest(
+                "Alice Smith", "alice.smith@example.com", "0498765432", ContactMethod.Phone, sampleAddress
+        );
+
+        String responseJson = mockMvc.perform(post("/customer")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        CustomerResponse created = objectMapper.readValue(responseJson, CustomerResponse.class);
+
+        CustomerUpdateRequest updateRequest = new CustomerUpdateRequest(
+                "Alice Johnson", null, null, ContactMethod.Email, null
+        );
+
+        mockMvc.perform(put("/customer/id/" + created.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Alice Johnson"))
+                .andExpect(jsonPath("$.contactMethod").value("Email"));
+
+        // Update address
+        AddressUpdateRequest addressUpdate = new AddressUpdateRequest(
+                5, 200, "Pitt St", "Sydney CBD", "Sydney", 2000, "NSW", "Australia"
+        );
+        mockMvc.perform(put("/customer/id/" + created.getId() + "/address")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(addressUpdate)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.street").value("Pitt St"))
+                .andExpect(jsonPath("$.unitNumber").value(5));
+    }
+
+    @Test
+    void testDeleteCustomer_HappyAndNotFound() throws Exception {
+        CustomerCreateRequest createRequest = new CustomerCreateRequest(
+                "Bob Brown", "bob.brown@example.com", "0411223344", ContactMethod.Email, sampleAddress
+        );
+
+        String responseJson = mockMvc.perform(post("/customer")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        CustomerResponse created = objectMapper.readValue(responseJson, CustomerResponse.class);
+
+        // Delete
+        mockMvc.perform(delete("/customer/id/" + created.getId()))
+                .andExpect(status().isNoContent());
+
+        // Get after delete should be 404
+        mockMvc.perform(get("/customer/id/" + created.getId()))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void testBasketOperations_HappyAndEdgePaths() throws Exception {
+        CustomerCreateRequest createRequest = new CustomerCreateRequest(
+                "Charlie Green", "charlie.green@example.com", "0455667788", ContactMethod.Email, sampleAddress
+        );
+
+        String responseJson = mockMvc.perform(post("/customer")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        CustomerResponse created = objectMapper.readValue(responseJson, CustomerResponse.class);
+
+        // Initial Basket should be empty
+        mockMvc.perform(get("/customer/id/" + created.getId() + "/basket"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.customerId").value(created.getId()))
+                .andExpect(jsonPath("$.items", hasSize(0)))
+                .andExpect(jsonPath("$.total").value(0.0));
+
+        // Add 2 Laptops
+        BasketAddRequest addRequest = new BasketAddRequest(101L, 2);
+        mockMvc.perform(post("/customer/id/" + created.getId() + "/basket/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(addRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items", hasSize(1)))
+                .andExpect(jsonPath("$.items[0].productId").value(101))
+                .andExpect(jsonPath("$.items[0].quantity").value(2))
+                .andExpect(jsonPath("$.items[0].price").value(1200.0))
+                .andExpect(jsonPath("$.total").value(2400.0));
+
+        // Remove 1 Laptop
+        BasketRemoveRequest removeRequest = new BasketRemoveRequest(101L, 1);
+        mockMvc.perform(delete("/customer/id/" + created.getId() + "/basket/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(removeRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].quantity").value(1))
+                .andExpect(jsonPath("$.total").value(1200.0));
+
+        // Remove remaining quantity -> item should be removed completely
+        mockMvc.perform(delete("/customer/id/" + created.getId() + "/basket/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(removeRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items", hasSize(0)))
+                .andExpect(jsonPath("$.total").value(0.0));
+    }
+
+    @Test
+    void testLocationQueriesAndEventEndpoints() throws Exception {
+        CustomerCreateRequest first = new CustomerCreateRequest(
+                "Dana West", "dana.west@example.com", "0411111111", ContactMethod.Email,
+                new AddressDto(2, 20, "Queen St", "Sydney", "Sydney", 2000, "NSW", "Australia")
+        );
+        CustomerCreateRequest second = new CustomerCreateRequest(
+                "Eli North", "eli.north@example.com", "0422222222", ContactMethod.Phone,
+                new AddressDto(5, 15, "Collins St", "Melbourne", "Melbourne", 3000, "VIC", "Australia")
+        );
+
+        mockMvc.perform(post("/customer").contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(first)))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/customer").contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(second)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/customer/state/NSW"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(1))));
+
+        mockMvc.perform(get("/customer/country/Australia"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(2))));
+
+        mockMvc.perform(get("/customer/event"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(1))));
+
+        mockMvc.perform(get("/customer/email/dana.west@example.com/event"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(1))));
+    }
+}

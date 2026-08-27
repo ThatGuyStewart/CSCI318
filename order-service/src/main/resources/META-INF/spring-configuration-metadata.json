@@ -1,0 +1,19 @@
+{
+  "properties": [
+    {
+      "name": "customer.service.url",
+      "type": "java.lang.String",
+      "description": "Base URL for the customer service calls."
+    },
+    {
+      "name": "product.service.url",
+      "type": "java.lang.String",
+      "description": "Base URL for the product service calls."
+    },
+    {
+      "name": "notification.service.url",
+      "type": "java.lang.String",
+      "description": "Base URL for the notification service calls."
+    }
+  ]
+}

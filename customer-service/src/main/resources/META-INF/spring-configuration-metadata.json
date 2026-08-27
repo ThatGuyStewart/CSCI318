@@ -1,0 +1,9 @@
+{
+  "properties": [
+    {
+      "name": "product.service.url",
+      "type": "java.lang.String",
+      "description": "Base URL for the product service calls."
+    }
+  ]
+}

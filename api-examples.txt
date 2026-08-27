@@ -1,0 +1,630 @@
+================================================================================
+                    ONLINE RETAIL MICROSERVICES API EXAMPLES
+================================================================================
+
+Microservice Base URLs:
+  - Customer Service:     http://localhost:8081
+  - Product Service:      http://localhost:8082
+  - Order Service:        http://localhost:8083
+  - Notification Service: http://localhost:8084
+
+================================================================================
+ 1. CUSTOMER SERVICE (Port 8081)
+================================================================================
+
+--------------------------------------------------------------------------------
+1.1 Create Customer (Feature C1)
+--------------------------------------------------------------------------------
+POST http://localhost:8081/customer
+Content-Type: application/json
+
+cURL:
+curl -X POST http://localhost:8081/customer \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "phone": "0412345678",
+    "contactMethod": "Email",
+    "address": {
+      "unitNumber": 12,
+      "streetNumber": 100,
+      "street": "George St",
+      "suburb": "Sydney CBD",
+      "city": "Sydney",
+      "postcode": 2000,
+      "state": "NSW",
+      "country": "Australia"
+    }
+  }'
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8081/customer" -Method POST -ContentType "application/json" -Body '{"name":"John Doe","email":"john.doe@example.com","phone":"0412345678","contactMethod":"Email","address":{"unitNumber":12,"streetNumber":100,"street":"George St","suburb":"Sydney CBD","city":"Sydney","postcode":2000,"state":"NSW","country":"Australia"}}'
+
+--------------------------------------------------------------------------------
+1.2 List All Customers (Feature C2)
+--------------------------------------------------------------------------------
+GET http://localhost:8081/customer
+
+cURL:
+curl -X GET http://localhost:8081/customer
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8081/customer" -Method GET
+
+--------------------------------------------------------------------------------
+1.3 Get Customer by ID (Feature C1 / C2)
+--------------------------------------------------------------------------------
+GET http://localhost:8081/customer/id/1
+
+cURL:
+curl -X GET http://localhost:8081/customer/id/1
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8081/customer/id/1" -Method GET
+
+--------------------------------------------------------------------------------
+1.4 Get Customer by Email (Feature C1 / C2)
+--------------------------------------------------------------------------------
+GET http://localhost:8081/customer/email/john.doe@example.com
+
+cURL:
+curl -X GET http://localhost:8081/customer/email/john.doe@example.com
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8081/customer/email/john.doe@example.com" -Method GET
+
+--------------------------------------------------------------------------------
+1.5 Get Customer by Phone (Feature C1 / C2)
+--------------------------------------------------------------------------------
+GET http://localhost:8081/customer/phone/0412345678
+
+cURL:
+curl -X GET http://localhost:8081/customer/phone/0412345678
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8081/customer/phone/0412345678" -Method GET
+
+--------------------------------------------------------------------------------
+1.6 Update Customer Details (Feature C1)
+--------------------------------------------------------------------------------
+PUT http://localhost:8081/customer/id/1
+Content-Type: application/json
+
+cURL:
+curl -X PUT http://localhost:8081/customer/id/1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Johnathan Doe",
+    "contactMethod": "Phone"
+  }'
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8081/customer/id/1" -Method PUT -ContentType "application/json" -Body '{"name":"Johnathan Doe","contactMethod":"Phone"}'
+
+--------------------------------------------------------------------------------
+1.7 Update Customer Address (Feature C1)
+--------------------------------------------------------------------------------
+PUT http://localhost:8081/customer/id/1/address
+Content-Type: application/json
+
+cURL:
+curl -X PUT http://localhost:8081/customer/id/1/address \
+  -H "Content-Type: application/json" \
+  -d '{
+    "unitNumber": 5,
+    "streetNumber": 200,
+    "street": "Pitt St",
+    "suburb": "Sydney CBD",
+    "city": "Sydney",
+    "postcode": 2000,
+    "state": "NSW",
+    "country": "Australia"
+  }'
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8081/customer/id/1/address" -Method PUT -ContentType "application/json" -Body '{"unitNumber":5,"streetNumber":200,"street":"Pitt St","suburb":"Sydney CBD","city":"Sydney","postcode":2000,"state":"NSW","country":"Australia"}'
+
+--------------------------------------------------------------------------------
+1.8 View Customer Basket (Feature C3)
+--------------------------------------------------------------------------------
+GET http://localhost:8081/customer/1/basket
+
+cURL:
+curl -X GET http://localhost:8081/customer/1/basket
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8081/customer/1/basket" -Method GET
+
+--------------------------------------------------------------------------------
+1.9 Add Product to Basket (Feature C3)
+--------------------------------------------------------------------------------
+POST http://localhost:8081/customer/1/basket/items
+Content-Type: application/json
+
+cURL:
+curl -X POST http://localhost:8081/customer/1/basket/items \
+  -H "Content-Type: application/json" \
+  -d '{
+    "productId": 1,
+    "quantity": 2
+  }'
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8081/customer/1/basket/items" -Method POST -ContentType "application/json" -Body '{"productId":1,"quantity":2}'
+
+--------------------------------------------------------------------------------
+1.10 Remove Product from Basket (Feature C3)
+--------------------------------------------------------------------------------
+DELETE http://localhost:8081/customer/1/basket/items
+Content-Type: application/json
+
+cURL:
+curl -X DELETE http://localhost:8081/customer/1/basket/items \
+  -H "Content-Type: application/json" \
+  -d '{
+    "productId": 1,
+    "quantity": 1
+  }'
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8081/customer/1/basket/items" -Method DELETE -ContentType "application/json" -Body '{"productId":1,"quantity":1}'
+
+--------------------------------------------------------------------------------
+1.11 List Customer Events (Feature C4)
+--------------------------------------------------------------------------------
+GET http://localhost:8081/customer/event
+
+cURL:
+curl -X GET "http://localhost:8081/customer/event?from=2026-08-01&to=2026-08-31"
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8081/customer/event?from=2026-08-01&to=2026-08-31" -Method GET
+
+--------------------------------------------------------------------------------
+1.12 Get Customer Events by ID (Feature C4)
+--------------------------------------------------------------------------------
+GET http://localhost:8081/customer/1/event
+
+cURL:
+curl -X GET "http://localhost:8081/customer/1/event?date=2026-08-27"
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8081/customer/1/event?date=2026-08-27" -Method GET
+
+--------------------------------------------------------------------------------
+1.13 Delete Customer (Feature C1)
+--------------------------------------------------------------------------------
+DELETE http://localhost:8081/customer/id/1
+
+cURL:
+curl -X DELETE http://localhost:8081/customer/id/1
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8081/customer/id/1" -Method DELETE
+
+
+================================================================================
+ 2. PRODUCT SERVICE (Port 8082)
+================================================================================
+
+--------------------------------------------------------------------------------
+2.1 Create Product (Feature P1)
+--------------------------------------------------------------------------------
+POST http://localhost:8082/product
+Content-Type: application/json
+
+Allowed categories: [Electronics, Appliances, Furniture, Kitchen, Tools, Garden,
+                    Sports, Toys, Automotive, Pets, Apparel, Beauty, Grocery,
+                    Media, Professional, Lifestyle]
+
+cURL:
+curl -X POST http://localhost:8082/product \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Wireless Noise Cancelling Headphones",
+    "category": "Electronics",
+    "price": 299.99,
+    "description": "Premium Bluetooth over-ear headphones with ANC."
+  }'
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8082/product" -Method POST -ContentType "application/json" -Body '{"name":"Wireless Noise Cancelling Headphones","category":"Electronics","price":299.99,"description":"Premium Bluetooth over-ear headphones with ANC."}'
+
+--------------------------------------------------------------------------------
+2.2 List All Products (Feature P2)
+--------------------------------------------------------------------------------
+GET http://localhost:8082/product
+
+cURL:
+curl -X GET http://localhost:8082/product
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8082/product" -Method GET
+
+--------------------------------------------------------------------------------
+2.3 Get Product by ID (Feature P2)
+--------------------------------------------------------------------------------
+GET http://localhost:8082/product/1
+
+cURL:
+curl -X GET http://localhost:8082/product/1
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8082/product/1" -Method GET
+
+--------------------------------------------------------------------------------
+2.4 Update Product (Feature P1)
+--------------------------------------------------------------------------------
+PUT http://localhost:8082/product/1
+Content-Type: application/json
+
+cURL:
+curl -X PUT http://localhost:8082/product/1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "price": 249.99,
+    "description": "On Sale: Premium Bluetooth headphones with ANC."
+  }'
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8082/product/1" -Method PUT -ContentType "application/json" -Body '{"price":249.99,"description":"On Sale: Premium Bluetooth headphones with ANC."}'
+
+--------------------------------------------------------------------------------
+2.5 Get Products by Category (Feature P2)
+--------------------------------------------------------------------------------
+GET http://localhost:8082/product/category/Electronics
+
+cURL:
+curl -X GET http://localhost:8082/product/category/Electronics
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8082/product/category/Electronics" -Method GET
+
+--------------------------------------------------------------------------------
+2.6 Search Products by Name (Feature P2)
+--------------------------------------------------------------------------------
+GET http://localhost:8082/product/search?name=Headphones
+
+cURL:
+curl -X GET "http://localhost:8082/product/search?name=Headphones"
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8082/product/search?name=Headphones" -Method GET
+
+--------------------------------------------------------------------------------
+2.7 Delete Product (Feature P1)
+--------------------------------------------------------------------------------
+DELETE http://localhost:8082/product/1
+
+cURL:
+curl -X DELETE http://localhost:8082/product/1
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8082/product/1" -Method DELETE
+
+--------------------------------------------------------------------------------
+2.8 List Product Events (Feature P3)
+--------------------------------------------------------------------------------
+GET http://localhost:8082/product/event
+
+cURL:
+curl -X GET "http://localhost:8082/product/event?from=2026-08-01&to=2026-08-31"
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8082/product/event?from=2026-08-01&to=2026-08-31" -Method GET
+
+--------------------------------------------------------------------------------
+2.9 Get Product Events by Category (Feature P3)
+--------------------------------------------------------------------------------
+GET http://localhost:8082/product/category/Electronics/event
+
+cURL:
+curl -X GET "http://localhost:8082/product/category/Electronics/event?date=2026-08-27"
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8082/product/category/Electronics/event?date=2026-08-27" -Method GET
+
+
+================================================================================
+ 3. ORDER SERVICE (Port 8083)
+================================================================================
+
+--------------------------------------------------------------------------------
+3.1 Create Order with Explicit Items (Feature O1)
+--------------------------------------------------------------------------------
+POST http://localhost:8083/order
+Content-Type: application/json
+
+cURL:
+curl -X POST http://localhost:8083/order \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customerId": 1,
+    "items": [
+      {
+        "productId": 1,
+        "quantity": 2
+      }
+    ]
+  }'
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8083/order" -Method POST -ContentType "application/json" -Body '{"customerId":1,"items":[{"productId":1,"quantity":2}]}'
+
+--------------------------------------------------------------------------------
+3.2 Create Order directly from Customer Basket (Feature O1)
+(Omit items array -> will fetch items from customer basket and auto-clear basket)
+--------------------------------------------------------------------------------
+POST http://localhost:8083/order
+Content-Type: application/json
+
+cURL:
+curl -X POST http://localhost:8083/order \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customerId": 1
+  }'
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8083/order" -Method POST -ContentType "application/json" -Body '{"customerId":1}'
+
+--------------------------------------------------------------------------------
+3.3 Get Order by ID (Feature O1 / O2)
+--------------------------------------------------------------------------------
+GET http://localhost:8083/order/1
+
+cURL:
+curl -X GET http://localhost:8083/order/1
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8083/order/1" -Method GET
+
+--------------------------------------------------------------------------------
+3.4 Cancel Order (Feature O1)
+(Allowed if Placed or Pending; if in another state, status remains unchanged and customer assistance notification is sent)
+--------------------------------------------------------------------------------
+POST http://localhost:8083/order/1/cancel
+
+cURL:
+curl -X POST http://localhost:8083/order/1/cancel
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8083/order/1/cancel" -Method POST
+
+--------------------------------------------------------------------------------
+3.5 Get Orders by Customer ID (Feature O1 / O2)
+--------------------------------------------------------------------------------
+GET http://localhost:8083/order/customer/1
+
+cURL:
+curl -X GET http://localhost:8083/order/customer/1
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8083/order/customer/1" -Method GET
+
+--------------------------------------------------------------------------------
+3.6 Get Orders by Customer Email (Feature O2)
+--------------------------------------------------------------------------------
+GET http://localhost:8083/order/customer/email/john.doe@example.com
+
+cURL:
+curl -X GET http://localhost:8083/order/customer/email/john.doe@example.com
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8083/order/customer/email/john.doe@example.com" -Method GET
+
+--------------------------------------------------------------------------------
+3.7 Get Orders by Customer Phone (Feature O2)
+--------------------------------------------------------------------------------
+GET http://localhost:8083/order/customer/phone/0412345678
+
+cURL:
+curl -X GET http://localhost:8083/order/customer/phone/0412345678
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8083/order/customer/phone/0412345678" -Method GET
+
+--------------------------------------------------------------------------------
+3.8 Get Orders by Product ID (Feature O2)
+--------------------------------------------------------------------------------
+GET http://localhost:8083/order/product/1
+
+cURL:
+curl -X GET http://localhost:8083/order/product/1
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8083/order/product/1" -Method GET
+
+--------------------------------------------------------------------------------
+3.9 Update Order Status (Feature O2)
+Statuses: [Placed, Pending, InTransit, Delivered, Cancelled]
+--------------------------------------------------------------------------------
+PUT http://localhost:8083/order/1/status
+Content-Type: application/json
+
+cURL:
+curl -X PUT http://localhost:8083/order/1/status \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "InTransit"
+  }'
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8083/order/1/status" -Method PUT -ContentType "application/json" -Body '{"status":"InTransit"}'
+
+--------------------------------------------------------------------------------
+3.10 Get Order Events by Customer (Feature O1 / O2)
+--------------------------------------------------------------------------------
+GET http://localhost:8083/order/customer/1/event
+
+cURL:
+curl -X GET "http://localhost:8083/order/customer/1/event?from=2026-08-01&to=2026-08-31"
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8083/order/customer/1/event?from=2026-08-01&to=2026-08-31" -Method GET
+
+--------------------------------------------------------------------------------
+3.11 Get Order Events by Order ID (Feature O1)
+--------------------------------------------------------------------------------
+GET http://localhost:8083/order/1/event
+
+cURL:
+curl -X GET "http://localhost:8083/order/1/event?date=2026-08-27"
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8083/order/1/event?date=2026-08-27" -Method GET
+
+
+================================================================================
+ 4. NOTIFICATION SERVICE (Port 8084)
+================================================================================
+
+--------------------------------------------------------------------------------
+4.1 Create Notification by Customer ID (Feature N1)
+--------------------------------------------------------------------------------
+POST http://localhost:8084/notification/customer/id/1
+Content-Type: application/json
+
+cURL:
+curl -X POST http://localhost:8084/notification/customer/id/1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Your item has been dispatched with tracking #TRK-98124."
+  }'
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8084/notification/customer/id/1" -Method POST -ContentType "application/json" -Body '{"message":"Your item has been dispatched with tracking #TRK-98124."}'
+
+--------------------------------------------------------------------------------
+4.2 Get Notifications by Customer ID (Feature N1)
+--------------------------------------------------------------------------------
+GET http://localhost:8084/notification/customer/id/1
+
+cURL:
+curl -X GET http://localhost:8084/notification/customer/id/1
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8084/notification/customer/id/1" -Method GET
+
+--------------------------------------------------------------------------------
+4.3 Create Notification by Customer Email (Feature N1)
+--------------------------------------------------------------------------------
+POST http://localhost:8084/notification/customer/email/john.doe@example.com
+Content-Type: application/json
+
+cURL:
+curl -X POST http://localhost:8084/notification/customer/email/john.doe@example.com \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Special Member Offer: Get 20% off your next purchase!"
+  }'
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8084/notification/customer/email/john.doe@example.com" -Method POST -ContentType "application/json" -Body '{"message":"Special Member Offer: Get 20% off your next purchase!"}'
+
+--------------------------------------------------------------------------------
+4.4 Get Notifications by Customer Email (Feature N1)
+--------------------------------------------------------------------------------
+GET http://localhost:8084/notification/customer/email/john.doe@example.com
+
+cURL:
+curl -X GET http://localhost:8084/notification/customer/email/john.doe@example.com
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8084/notification/customer/email/john.doe@example.com" -Method GET
+
+--------------------------------------------------------------------------------
+4.5 Create Notification by Customer Phone (Feature N1)
+--------------------------------------------------------------------------------
+POST http://localhost:8084/notification/customer/phone/0412345678
+Content-Type: application/json
+
+cURL:
+curl -X POST http://localhost:8084/notification/customer/phone/0412345678 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "SMS Security Code: 492019"
+  }'
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8084/notification/customer/phone/0412345678" -Method POST -ContentType "application/json" -Body '{"message":"SMS Security Code: 492019"}'
+
+--------------------------------------------------------------------------------
+4.6 Get Notifications by Customer Phone (Feature N1)
+--------------------------------------------------------------------------------
+GET http://localhost:8084/notification/customer/phone/0412345678
+
+cURL:
+curl -X GET http://localhost:8084/notification/customer/phone/0412345678
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8084/notification/customer/phone/0412345678" -Method GET
+
+--------------------------------------------------------------------------------
+4.7 Broadcast Notification to All Customers (Feature N1)
+--------------------------------------------------------------------------------
+POST http://localhost:8084/notification/broadcast
+Content-Type: application/json
+
+cURL:
+curl -X POST http://localhost:8084/notification/broadcast \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Storewide Summer Sale is now live! Free shipping on all orders."
+  }'
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8084/notification/broadcast" -Method POST -ContentType "application/json" -Body '{"message":"Storewide Summer Sale is now live! Free shipping on all orders."}'
+
+--------------------------------------------------------------------------------
+4.8 Broadcast Notification to Specific Area (Feature N1)
+(Can filter by postcode, state, and/or country)
+--------------------------------------------------------------------------------
+POST http://localhost:8084/notification/broadcast/area
+Content-Type: application/json
+
+cURL:
+curl -X POST http://localhost:8084/notification/broadcast/area \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "NSW Express Delivery available today only!",
+    "state": "NSW",
+    "country": "Australia"
+  }'
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8084/notification/broadcast/area" -Method POST -ContentType "application/json" -Body '{"message":"NSW Express Delivery available today only!","state":"NSW","country":"Australia"}'
+
+--------------------------------------------------------------------------------
+4.9 Get Notifications by Date (Feature N1)
+--------------------------------------------------------------------------------
+GET http://localhost:8084/notification/date/2026-08-16
+
+cURL:
+curl -X GET http://localhost:8084/notification/date/2026-08-16
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8084/notification/date/2026-08-16" -Method GET
+
+--------------------------------------------------------------------------------
+4.10 Get Notifications by Date Range (Feature N1)
+--------------------------------------------------------------------------------
+GET http://localhost:8084/notification/date-range?from=2026-08-01&to=2026-08-31
+
+cURL:
+curl -X GET "http://localhost:8084/notification/date-range?from=2026-08-01&to=2026-08-31"
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8084/notification/date-range?from=2026-08-01&to=2026-08-31" -Method GET
+
+--------------------------------------------------------------------------------
+4.11 Get Notification by ID (Feature N1)
+--------------------------------------------------------------------------------
+GET http://localhost:8084/notification/1
+
+cURL:
+curl -X GET http://localhost:8084/notification/1
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8084/notification/1" -Method GET

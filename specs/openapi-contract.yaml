@@ -1,0 +1,3588 @@
+openapi: 3.0.3
+
+info:
+
+&#x20; title: Microservice Online Retail Application API Specification
+
+&#x20; description: OpenAPI 3.0 specification for Customer, Product, Order, and Notification microservices. Fully aligned with the provided technical architecture, user stories, domain models, and API endpoint summary.
+
+&#x20; version: 1.0.0
+
+
+
+servers:
+
+&#x20; - url: http://localhost:8081
+
+&#x20;   description: Customer Service
+
+&#x20; - url: http://localhost:8082
+
+&#x20;   description: Product Service
+
+&#x20; - url: http://localhost:8083
+
+&#x20;   description: Order Service
+
+&#x20; - url: http://localhost:8084
+
+&#x20;   description: Notification Service
+
+
+
+tags:
+
+&#x20; - name: Customer Service
+
+&#x20;   description: Customer records, addresses, and baskets
+
+&#x20; - name: Product Service
+
+&#x20;   description: Product catalog management
+
+&#x20; - name: Order Service
+
+&#x20;   description: Order creation, cancellation, and admin operations
+
+&#x20; - name: Notification Service
+
+&#x20;   description: Customer notifications and broadcasts
+
+&#x20; - name: Events
+
+&#x20;   description: Domain event query endpoints across services
+
+
+
+paths:
+
+&#x20; # ============================================================
+
+&#x20; # CUSTOMER SERVICE (8081)
+
+&#x20; # ============================================================
+
+&#x20; /customer:
+
+&#x20;   post:
+
+&#x20;     tags: \[Customer Service]
+
+&#x20;     summary: Create a new customer (C1)
+
+&#x20;     operationId: createCustomer
+
+&#x20;     requestBody:
+
+&#x20;       required: true
+
+&#x20;       content:
+
+&#x20;         application/json:
+
+&#x20;           schema:
+
+&#x20;             $ref: '#/components/schemas/CustomerCreateRequest'
+
+&#x20;     responses:
+
+&#x20;       '201':
+
+&#x20;         description: Customer created
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               $ref: '#/components/schemas/CustomerResponse'
+
+&#x20;   get:
+
+&#x20;     tags: \[Customer Service]
+
+&#x20;     summary: List all customers (C2)
+
+&#x20;     operationId: listCustomers
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: All customers
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/CustomerResponse'
+
+
+
+&#x20; /customer/id/{id}:
+
+&#x20;   get:
+
+&#x20;     tags: \[Customer Service]
+
+&#x20;     summary: Get customer by ID (C1/C2)
+
+&#x20;     operationId: getCustomerById
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: id
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Customer found
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               $ref: '#/components/schemas/CustomerResponse'
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+&#x20;   put:
+
+&#x20;     tags: \[Customer Service]
+
+&#x20;     summary: Update customer by ID (C1)
+
+&#x20;     operationId: updateCustomerById
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: id
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;     requestBody:
+
+&#x20;       required: true
+
+&#x20;       content:
+
+&#x20;         application/json:
+
+&#x20;           schema:
+
+&#x20;             $ref: '#/components/schemas/CustomerUpdateRequest'
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Customer updated
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               $ref: '#/components/schemas/CustomerResponse'
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+&#x20;   delete:
+
+&#x20;     tags: \[Customer Service]
+
+&#x20;     summary: Delete customer by ID (C1)
+
+&#x20;     operationId: deleteCustomerById
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: id
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;     responses:
+
+&#x20;       '204':
+
+&#x20;         description: Customer deleted
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+
+
+&#x20; /customer/id/{id}/address:
+
+&#x20;   put:
+
+&#x20;     tags: \[Customer Service]
+
+&#x20;     summary: Update customer address (C1)
+
+&#x20;     operationId: updateCustomerAddress
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: id
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;     requestBody:
+
+&#x20;       required: true
+
+&#x20;       content:
+
+&#x20;         application/json:
+
+&#x20;           schema:
+
+&#x20;             $ref: '#/components/schemas/AddressUpdateRequest'
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Address updated
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               $ref: '#/components/schemas/AddressResponse'
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+
+
+&#x20; /customer/id/{id}/basket:
+
+&#x20;   get:
+
+&#x20;     tags: \[Customer Service]
+
+&#x20;     summary: View basket (C3)
+
+&#x20;     operationId: getBasket
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: id
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Basket retrieved
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               $ref: '#/components/schemas/BasketResponse'
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+
+
+&#x20; /customer/id/{id}/basket/items:
+
+&#x20;   post:
+
+&#x20;     tags: \[Customer Service]
+
+&#x20;     summary: Add product to basket (C3)
+
+&#x20;     operationId: addItemToBasket
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: id
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;     requestBody:
+
+&#x20;       required: true
+
+&#x20;       content:
+
+&#x20;         application/json:
+
+&#x20;           schema:
+
+&#x20;             $ref: '#/components/schemas/BasketAddRequest'
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Basket updated
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               $ref: '#/components/schemas/BasketResponse'
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+&#x20;   delete:
+
+&#x20;     tags: \[Customer Service]
+
+&#x20;     summary: Remove product from basket (C3)
+
+&#x20;     operationId: removeItemFromBasket
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: id
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;     requestBody:
+
+&#x20;       required: true
+
+&#x20;       content:
+
+&#x20;         application/json:
+
+&#x20;           schema:
+
+&#x20;             $ref: '#/components/schemas/BasketRemoveRequest'
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Basket updated
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               $ref: '#/components/schemas/BasketResponse'
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+
+
+&#x20; /customer/event:
+
+&#x20;   get:
+
+&#x20;     tags: \[Customer Service, Events]
+
+&#x20;     summary: View all customer domain events (C4)
+
+&#x20;     operationId: listCustomerEvents
+
+&#x20;     parameters:
+
+&#x20;       - in: query
+
+&#x20;         name: date
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;         description: Optional single date filter (inclusive)
+
+&#x20;       - in: query
+
+&#x20;         name: from
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;         description: Optional start date (inclusive)
+
+&#x20;       - in: query
+
+&#x20;         name: to
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;         description: Optional end date (inclusive)
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Array of customer domain events
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/DomainEventEnvelope'
+
+
+
+&#x20; /customer/{id}/event:
+
+&#x20;   get:
+
+&#x20;     tags: \[Customer Service, Events]
+
+&#x20;     summary: View customer domain events by customer id (C4)
+
+&#x20;     operationId: listCustomerEventsById
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: id
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;       - in: query
+
+&#x20;         name: date
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: from
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: to
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Array of customer domain events for the customer
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/DomainEventEnvelope'
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+
+
+&#x20; /customer/email/{email}/event:
+
+&#x20;   get:
+
+&#x20;     tags: \[Customer Service, Events]
+
+&#x20;     summary: View customer domain events by email (C4)
+
+&#x20;     operationId: listCustomerEventsByEmail
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: email
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;       - in: query
+
+&#x20;         name: date
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: from
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: to
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Array of customer domain events for the email
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/DomainEventEnvelope'
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+
+
+&#x20; /customer/phone/{phone}/event:
+
+&#x20;   get:
+
+&#x20;     tags: \[Customer Service, Events]
+
+&#x20;     summary: View customer domain events by phone (C4)
+
+&#x20;     operationId: listCustomerEventsByPhone
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: phone
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;       - in: query
+
+&#x20;         name: date
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: from
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: to
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Array of customer domain events for the phone
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/DomainEventEnvelope'
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+
+
+&#x20; # ============================================================
+
+&#x20; # PRODUCT SERVICE (8082)
+
+&#x20; # ============================================================
+
+&#x20; /product:
+
+&#x20;   post:
+
+&#x20;     tags: \[Product Service]
+
+&#x20;     summary: Create product (P1)
+
+&#x20;     operationId: createProduct
+
+&#x20;     requestBody:
+
+&#x20;       required: true
+
+&#x20;       content:
+
+&#x20;         application/json:
+
+&#x20;           schema:
+
+&#x20;             $ref: '#/components/schemas/ProductCreateRequest'
+
+&#x20;     responses:
+
+&#x20;       '201':
+
+&#x20;         description: Product created
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               $ref: '#/components/schemas/ProductResponse'
+
+&#x20;   get:
+
+&#x20;     tags: \[Product Service]
+
+&#x20;     summary: List all products (P2)
+
+&#x20;     operationId: listProducts
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: All products
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/ProductResponse'
+
+
+
+&#x20; /product/{id}:
+
+&#x20;   get:
+
+&#x20;     tags: \[Product Service]
+
+&#x20;     summary: Get product by ID (P2)
+
+&#x20;     operationId: getProductById
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: id
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Product found
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               $ref: '#/components/schemas/ProductResponse'
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+&#x20;   put:
+
+&#x20;     tags: \[Product Service]
+
+&#x20;     summary: Update product (P1)
+
+&#x20;     operationId: updateProduct
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: id
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;     requestBody:
+
+&#x20;       required: true
+
+&#x20;       content:
+
+&#x20;         application/json:
+
+&#x20;           schema:
+
+&#x20;             $ref: '#/components/schemas/ProductUpdateRequest'
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Product updated
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               $ref: '#/components/schemas/ProductResponse'
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+&#x20;   delete:
+
+&#x20;     tags: \[Product Service]
+
+&#x20;     summary: Delete product (P1)
+
+&#x20;     operationId: deleteProduct
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: id
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;     responses:
+
+&#x20;       '204':
+
+&#x20;         description: Product deleted
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+
+
+&#x20; /product/category/{category}:
+
+&#x20;   get:
+
+&#x20;     tags: \[Product Service]
+
+&#x20;     summary: Get products by category (P2)
+
+&#x20;     operationId: getProductsByCategory
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: category
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           $ref: '#/components/schemas/ProductCategory'
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Products in category
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/ProductResponse'
+
+
+
+&#x20; /product/search:
+
+&#x20;   get:
+
+&#x20;     tags: \[Product Service]
+
+&#x20;     summary: Search products by name (P2)
+
+&#x20;     operationId: searchProductsByName
+
+&#x20;     parameters:
+
+&#x20;       - in: query
+
+&#x20;         name: name
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Matching products
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/ProductResponse'
+
+
+
+&#x20; /product/event:
+
+&#x20;   get:
+
+&#x20;     tags: \[Product Service, Events]
+
+&#x20;     summary: View all product domain events (P3)
+
+&#x20;     operationId: listProductEvents
+
+&#x20;     parameters:
+
+&#x20;       - in: query
+
+&#x20;         name: date
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: from
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: to
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Array of product domain events
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/DomainEventEnvelope'
+
+
+
+&#x20; /product/{id}/event:
+
+&#x20;   get:
+
+&#x20;     tags: \[Product Service, Events]
+
+&#x20;     summary: View product domain events by product id (P3)
+
+&#x20;     operationId: listProductEventsById
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: id
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;       - in: query
+
+&#x20;         name: date
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: from
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: to
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Array of product domain events for the product
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/DomainEventEnvelope'
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+
+
+&#x20; /product/category/{category}/event:
+
+&#x20;   get:
+
+&#x20;     tags: \[Product Service, Events]
+
+&#x20;     summary: View product domain events by category (P3)
+
+&#x20;     operationId: listProductEventsByCategory
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: category
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           $ref: '#/components/schemas/ProductCategory'
+
+&#x20;       - in: query
+
+&#x20;         name: date
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: from
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: to
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Array of product domain events for the category
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/DomainEventEnvelope'
+
+
+
+&#x20; # ============================================================
+
+&#x20; # ORDER SERVICE (8083)
+
+&#x20; # ============================================================
+
+&#x20; /order:
+
+&#x20;   post:
+
+&#x20;     tags: \[Order Service]
+
+&#x20;     summary: Create order (O1)
+
+&#x20;     operationId: createOrder
+
+&#x20;     requestBody:
+
+&#x20;       required: true
+
+&#x20;       content:
+
+&#x20;         application/json:
+
+&#x20;           schema:
+
+&#x20;             $ref: '#/components/schemas/OrderCreateRequest'
+
+&#x20;     responses:
+
+&#x20;       '201':
+
+&#x20;         description: Order created
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               $ref: '#/components/schemas/OrderResponse'
+
+&#x20;       '400':
+
+&#x20;         $ref: '#/components/responses/BadRequest'
+
+&#x20; /order/{id}:
+
+&#x20;   get:
+
+&#x20;     tags: \[Order Service]
+
+&#x20;     summary: Get order by ID (O1/O2)
+
+&#x20;     operationId: getOrderById
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: id
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Order found
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               $ref: '#/components/schemas/OrderResponse'
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+&#x20; /order/{id}/cancel:
+
+&#x20;   post:
+
+&#x20;     tags: \[Order Service]
+
+&#x20;     summary: Cancel order (O1)
+
+&#x20;     operationId: cancelOrder
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: id
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Order cancelled
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               $ref: '#/components/schemas/OrderResponse'
+
+&#x20;       '400':
+
+&#x20;         $ref: '#/components/responses/BadRequest'
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+
+
+&#x20; /order/customer/{customerId}:
+
+&#x20;   get:
+
+&#x20;     tags: \[Order Service]
+
+&#x20;     summary: Get orders for customer (O1)
+
+&#x20;     operationId: getOrdersForCustomer
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: customerId
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Customer orders
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/OrderResponse'
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+
+
+&#x20; /order/customer/id/{customerId}:
+
+&#x20;   get:
+
+&#x20;     tags: \[Order Service]
+
+&#x20;     summary: Get orders for customer by id (O2)
+
+&#x20;     operationId: getOrdersForCustomerById
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: customerId
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Orders found
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/OrderResponse'
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+
+
+&#x20; /order/customer/email/{email}:
+
+&#x20;   get:
+
+&#x20;     tags: \[Order Service]
+
+&#x20;     summary: Get orders by email (O2)
+
+&#x20;     operationId: getOrdersByEmail
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: email
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Orders found
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/OrderResponse'
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+
+
+&#x20; /order/customer/phone/{phone}:
+
+&#x20;   get:
+
+&#x20;     tags: \[Order Service]
+
+&#x20;     summary: Get orders by phone (O2)
+
+&#x20;     operationId: getOrdersByPhone
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: phone
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Orders found
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/OrderResponse'
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+
+
+&#x20; /order/product/{productId}:
+
+&#x20;   get:
+
+&#x20;     tags: \[Order Service]
+
+&#x20;     summary: Get orders containing product (O2)
+
+&#x20;     operationId: getOrdersByProduct
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: productId
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Orders found
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/OrderResponse'
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+
+
+&#x20; /order/{id}/status:
+
+&#x20;   put:
+
+&#x20;     tags: \[Order Service]
+
+&#x20;     summary: Update order status (O2)
+
+&#x20;     operationId: updateOrderStatus
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: id
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;     requestBody:
+
+&#x20;       required: true
+
+&#x20;       content:
+
+&#x20;         application/json:
+
+&#x20;           schema:
+
+&#x20;             $ref: '#/components/schemas/OrderStatusUpdateRequest'
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Status updated
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               $ref: '#/components/schemas/OrderResponse'
+
+&#x20;       '400':
+
+&#x20;         $ref: '#/components/responses/BadRequest'
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+
+
+&#x20; /order/customer/{customerId}/event:
+
+&#x20;   get:
+
+&#x20;     tags: \[Order Service, Events]
+
+&#x20;     summary: View order domain events for a customer (O1)
+
+&#x20;     operationId: listOrderEventsForCustomer
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: customerId
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;       - in: query
+
+&#x20;         name: date
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: from
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: to
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Array of order domain events for the customer
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/DomainEventEnvelope'
+
+
+
+&#x20; /order/{id}/event:
+
+&#x20;   get:
+
+&#x20;     tags: \[Order Service, Events]
+
+&#x20;     summary: View order domain events by order id (O1)
+
+&#x20;     operationId: listOrderEventsById
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: id
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;       - in: query
+
+&#x20;         name: date
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: from
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: to
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Array of order domain events for the order
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/DomainEventEnvelope'
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+
+
+&#x20; /order/customer/id/{customerId}/event:
+
+&#x20;   get:
+
+&#x20;     tags: \[Order Service, Events]
+
+&#x20;     summary: View order domain events by customer id (O2)
+
+&#x20;     operationId: listOrderEventsByCustomerId
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: customerId
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;       - in: query
+
+&#x20;         name: date
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: from
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: to
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Array of order domain events for the customer id
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/DomainEventEnvelope'
+
+
+
+&#x20; /order/customer/email/{email}/event:
+
+&#x20;   get:
+
+&#x20;     tags: \[Order Service, Events]
+
+&#x20;     summary: View order domain events by customer email (O2)
+
+&#x20;     operationId: listOrderEventsByCustomerEmail
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: email
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;       - in: query
+
+&#x20;         name: date
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: from
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: to
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Array of order domain events for the customer email
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/DomainEventEnvelope'
+
+
+
+&#x20; /order/customer/phone/{phone}/event:
+
+&#x20;   get:
+
+&#x20;     tags: \[Order Service, Events]
+
+&#x20;     summary: View order domain events by customer phone (O2)
+
+&#x20;     operationId: listOrderEventsByCustomerPhone
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: phone
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;       - in: query
+
+&#x20;         name: date
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: from
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: to
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Array of order domain events for the customer phone
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/DomainEventEnvelope'
+
+
+
+&#x20; /order/product/{productId}/event:
+
+&#x20;   get:
+
+&#x20;     tags: \[Order Service, Events]
+
+&#x20;     summary: View order domain events by product id (O2)
+
+&#x20;     operationId: listOrderEventsByProduct
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: productId
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;       - in: query
+
+&#x20;         name: date
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: from
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: to
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Array of order domain events for the product
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/DomainEventEnvelope'
+
+
+
+&#x20; # ============================================================
+
+&#x20; # NOTIFICATION SERVICE (8084)
+
+&#x20; # ============================================================
+
+&#x20; /notification/customer/id/{customerId}:
+
+&#x20;   post:
+
+&#x20;     tags: \[Notification Service]
+
+&#x20;     summary: Create notification by customer ID (N1)
+
+&#x20;     operationId: createNotificationByCustomerId
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: customerId
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;     requestBody:
+
+&#x20;       required: true
+
+&#x20;       content:
+
+&#x20;         application/json:
+
+&#x20;           schema:
+
+&#x20;             $ref: '#/components/schemas/NotificationCreateRequest'
+
+&#x20;     responses:
+
+&#x20;       '201':
+
+&#x20;         description: Notification created
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               $ref: '#/components/schemas/NotificationResponse'
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+&#x20;   get:
+
+&#x20;     tags: \[Notification Service]
+
+&#x20;     summary: Get notifications by customer ID (N1)
+
+&#x20;     operationId: getNotificationsByCustomerId
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: customerId
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;       - in: query
+
+&#x20;         name: date
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: from
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: to
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Notifications found
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/NotificationResponse'
+
+
+
+&#x20; /notification/customer/email/{email}:
+
+&#x20;   post:
+
+&#x20;     tags: \[Notification Service]
+
+&#x20;     summary: Create notification by email (N1)
+
+&#x20;     operationId: createNotificationByEmail
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: email
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;     requestBody:
+
+&#x20;       required: true
+
+&#x20;       content:
+
+&#x20;         application/json:
+
+&#x20;           schema:
+
+&#x20;             $ref: '#/components/schemas/NotificationCreateRequest'
+
+&#x20;     responses:
+
+&#x20;       '201':
+
+&#x20;         description: Notification created
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               $ref: '#/components/schemas/NotificationResponse'
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+&#x20;   get:
+
+&#x20;     tags: \[Notification Service]
+
+&#x20;     summary: Get notifications by email (N1)
+
+&#x20;     operationId: getNotificationsByEmail
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: email
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;       - in: query
+
+&#x20;         name: date
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: from
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: to
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Notifications found
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/NotificationResponse'
+
+
+
+&#x20; /notification/customer/phone/{phone}:
+
+&#x20;   post:
+
+&#x20;     tags: \[Notification Service]
+
+&#x20;     summary: Create notification by phone (N1)
+
+&#x20;     operationId: createNotificationByPhone
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: phone
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;     requestBody:
+
+&#x20;       required: true
+
+&#x20;       content:
+
+&#x20;         application/json:
+
+&#x20;           schema:
+
+&#x20;             $ref: '#/components/schemas/NotificationCreateRequest'
+
+&#x20;     responses:
+
+&#x20;       '201':
+
+&#x20;         description: Notification created
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               $ref: '#/components/schemas/NotificationResponse'
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+&#x20;   get:
+
+&#x20;     tags: \[Notification Service]
+
+&#x20;     summary: Get notifications by phone (N1)
+
+&#x20;     operationId: getNotificationsByPhone
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: phone
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;       - in: query
+
+&#x20;         name: date
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: from
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: to
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Notifications found
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/NotificationResponse'
+
+
+
+&#x20; /notification/broadcast:
+
+&#x20;   post:
+
+&#x20;     tags: \[Notification Service]
+
+&#x20;     summary: Broadcast notification to all customers (N1)
+
+&#x20;     operationId: broadcastNotification
+
+&#x20;     requestBody:
+
+&#x20;       required: true
+
+&#x20;       content:
+
+&#x20;         application/json:
+
+&#x20;           schema:
+
+&#x20;             $ref: '#/components/schemas/NotificationBroadcastRequest'
+
+&#x20;     responses:
+
+&#x20;       '201':
+
+&#x20;         description: Broadcast sent
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/NotificationResponse'
+
+
+
+&#x20; /notification/broadcast/area:
+
+&#x20;   post:
+
+&#x20;     tags: \[Notification Service]
+
+&#x20;     summary: Broadcast notification to customers in an area (N1)
+
+&#x20;     operationId: broadcastNotificationArea
+
+&#x20;     requestBody:
+
+&#x20;       required: true
+
+&#x20;       content:
+
+&#x20;         application/json:
+
+&#x20;           schema:
+
+&#x20;             $ref: '#/components/schemas/NotificationAreaBroadcastRequest'
+
+&#x20;     responses:
+
+&#x20;       '201':
+
+&#x20;         description: Area broadcast sent
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/NotificationResponse'
+
+
+
+&#x20; /notification:
+
+&#x20;   get:
+
+&#x20;     tags: \[Notification Service]
+
+&#x20;     summary: View all notifications (N1)
+
+&#x20;     operationId: listNotifications
+
+&#x20;     parameters:
+
+&#x20;       - in: query
+
+&#x20;         name: date
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: from
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: to
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Notifications found
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/NotificationResponse'
+
+
+
+&#x20; /notification/date/{date}:
+
+&#x20;   get:
+
+&#x20;     tags: \[Notification Service]
+
+&#x20;     summary: Get notifications by date (N1)
+
+&#x20;     operationId: getNotificationsByDate
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: date
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Notifications found
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/NotificationResponse'
+
+
+
+&#x20; /notification/date-range:
+
+&#x20;   get:
+
+&#x20;     tags: \[Notification Service]
+
+&#x20;     summary: Get notifications between dates (N1)
+
+&#x20;     operationId: getNotificationsByDateRange
+
+&#x20;     parameters:
+
+&#x20;       - in: query
+
+&#x20;         name: from
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;       - in: query
+
+&#x20;         name: to
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: string
+
+&#x20;           format: date
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Notifications found
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               type: array
+
+&#x20;               items:
+
+&#x20;                 $ref: '#/components/schemas/NotificationResponse'
+
+
+
+&#x20; /notification/{id}:
+
+&#x20;   get:
+
+&#x20;     tags: \[Notification Service]
+
+&#x20;     summary: Get notification by ID (N1)
+
+&#x20;     operationId: getNotificationById
+
+&#x20;     parameters:
+
+&#x20;       - in: path
+
+&#x20;         name: id
+
+&#x20;         required: true
+
+&#x20;         schema:
+
+&#x20;           type: integer
+
+&#x20;     responses:
+
+&#x20;       '200':
+
+&#x20;         description: Notification found
+
+&#x20;         content:
+
+&#x20;           application/json:
+
+&#x20;             schema:
+
+&#x20;               $ref: '#/components/schemas/NotificationResponse'
+
+&#x20;       '404':
+
+&#x20;         $ref: '#/components/responses/NotFound'
+
+
+
+components:
+
+&#x20; schemas:
+
+&#x20;   # -------------------------
+
+&#x20;   # Domain Event Envelope
+
+&#x20;   # -------------------------
+
+&#x20;   DomainEventEnvelope:
+
+&#x20;     type: object
+
+&#x20;     properties:
+
+&#x20;       eventId:
+
+&#x20;         type: string
+
+&#x20;         format: uuid
+
+&#x20;       eventType:
+
+&#x20;         type: string
+
+&#x20;       timestamp:
+
+&#x20;         type: string
+
+&#x20;         format: date-time
+
+&#x20;       aggregateId:
+
+&#x20;         type: integer
+
+&#x20;       payload:
+
+&#x20;         type: object
+
+&#x20;         description: Event-specific payload
+
+&#x20;     required:
+
+&#x20;       - eventId
+
+&#x20;       - eventType
+
+&#x20;       - timestamp
+
+&#x20;       - aggregateId
+
+&#x20;       - payload
+
+
+
+&#x20;   # -------------------------
+
+&#x20;   # Customer
+
+&#x20;   # -------------------------
+
+&#x20;   Address:
+
+&#x20;     type: object
+
+&#x20;     properties:
+
+&#x20;       unitNumber:
+
+&#x20;         type: integer
+
+&#x20;         nullable: true
+
+&#x20;         minimum: 1
+
+&#x20;       streetNumber:
+
+&#x20;         type: integer
+
+&#x20;         minimum: 1
+
+&#x20;       street:
+
+&#x20;         type: string
+
+&#x20;       suburb:
+
+&#x20;         type: string
+
+&#x20;         nullable: true
+
+&#x20;       city:
+
+&#x20;         type: string
+
+&#x20;       postcode:
+
+&#x20;         type: integer
+
+&#x20;         minimum: 1
+
+&#x20;       state:
+
+&#x20;         type: string
+
+&#x20;       country:
+
+&#x20;         type: string
+
+&#x20;     required:
+
+&#x20;       - streetNumber
+
+&#x20;       - street
+
+&#x20;       - city
+
+&#x20;       - postcode
+
+&#x20;       - state
+
+&#x20;       - country
+
+
+
+&#x20;   CustomerCreateRequest:
+
+&#x20;     type: object
+
+&#x20;     required:
+
+&#x20;       - name
+
+&#x20;       - email
+
+&#x20;       - phone
+
+&#x20;       - contactMethod
+
+&#x20;       - address
+
+&#x20;     properties:
+
+&#x20;       name:
+
+&#x20;         type: string
+
+&#x20;       email:
+
+&#x20;         type: string
+
+&#x20;         format: email
+
+&#x20;       phone:
+
+&#x20;         type: integer
+
+&#x20;         minimum: 0
+
+&#x20;       contactMethod:
+
+&#x20;         type: string
+
+&#x20;         enum: \[Email, Phone]
+
+&#x20;       address:
+
+&#x20;         $ref: '#/components/schemas/Address'
+
+
+
+&#x20;   CustomerUpdateRequest:
+
+&#x20;     type: object
+
+&#x20;     properties:
+
+&#x20;       name:
+
+&#x20;         type: string
+
+&#x20;       email:
+
+&#x20;         type: string
+
+&#x20;         format: email
+
+&#x20;       phone:
+
+&#x20;         type: integer
+
+&#x20;         minimum: 0
+
+&#x20;       contactMethod:
+
+&#x20;         type: string
+
+&#x20;         enum: \[Email, Phone]
+
+&#x20;       address:
+
+&#x20;         $ref: '#/components/schemas/Address'
+
+
+
+&#x20;   CustomerResponse:
+
+&#x20;     allOf:
+
+&#x20;       - $ref: '#/components/schemas/CustomerCreateRequest'
+
+&#x20;       - type: object
+
+&#x20;         properties:
+
+&#x20;           id:
+
+&#x20;             type: integer
+
+
+
+&#x20;   AddressUpdateRequest:
+
+&#x20;     $ref: '#/components/schemas/Address'
+
+
+
+&#x20;   AddressResponse:
+
+&#x20;     allOf:
+
+&#x20;       - $ref: '#/components/schemas/Address'
+
+&#x20;       - type: object
+
+&#x20;         properties:
+
+&#x20;           customerId:
+
+&#x20;             type: integer
+
+
+
+&#x20;   # -------------------------
+
+&#x20;   # Basket
+
+&#x20;   # -------------------------
+
+&#x20;   BasketItem:
+
+&#x20;     type: object
+
+&#x20;     properties:
+
+&#x20;       productId:
+
+&#x20;         type: integer
+
+&#x20;       name:
+
+&#x20;         type: string
+
+&#x20;       price:
+
+&#x20;         type: number
+
+&#x20;         format: double
+
+&#x20;       quantity:
+
+&#x20;         type: integer
+
+&#x20;         minimum: 1
+
+&#x20;       subtotal:
+
+&#x20;         type: number
+
+&#x20;         format: double
+
+&#x20;     required:
+
+&#x20;       - productId
+
+&#x20;       - name
+
+&#x20;       - price
+
+&#x20;       - quantity
+
+&#x20;       - subtotal
+
+
+
+&#x20;   BasketResponse:
+
+&#x20;     type: object
+
+&#x20;     properties:
+
+&#x20;       customerId:
+
+&#x20;         type: integer
+
+&#x20;       items:
+
+&#x20;         type: array
+
+&#x20;         items:
+
+&#x20;           $ref: '#/components/schemas/BasketItem'
+
+&#x20;       total:
+
+&#x20;         type: number
+
+&#x20;         format: double
+
+&#x20;     required:
+
+&#x20;       - customerId
+
+&#x20;       - items
+
+&#x20;       - total
+
+
+
+&#x20;   BasketAddRequest:
+
+&#x20;     type: object
+
+&#x20;     required:
+
+&#x20;       - productId
+
+&#x20;       - quantity
+
+&#x20;     properties:
+
+&#x20;       productId:
+
+&#x20;         type: integer
+
+&#x20;       quantity:
+
+&#x20;         type: integer
+
+&#x20;         minimum: 1
+
+
+
+&#x20;   BasketRemoveRequest:
+
+&#x20;     type: object
+
+&#x20;     required:
+
+&#x20;       - productId
+
+&#x20;       - quantity
+
+&#x20;     properties:
+
+&#x20;       productId:
+
+&#x20;         type: integer
+
+&#x20;       quantity:
+
+&#x20;         type: integer
+
+&#x20;         minimum: 1
+
+
+
+&#x20;   # -------------------------
+
+&#x20;   # Product
+
+&#x20;   # -------------------------
+
+&#x20;   ProductCategory:
+
+&#x20;     type: string
+
+&#x20;     enum:
+
+&#x20;       - Electronics
+
+&#x20;       - Appliances
+
+&#x20;       - Furniture
+
+&#x20;       - Kitchen
+
+&#x20;       - Tools
+
+&#x20;       - Garden
+
+&#x20;       - Sports
+
+&#x20;       - Toys
+
+&#x20;       - Automotive
+
+&#x20;       - Pets
+
+&#x20;       - Apparel
+
+&#x20;       - Beauty
+
+&#x20;       - Grocery
+
+&#x20;       - Media
+
+&#x20;       - Professional
+
+&#x20;       - Lifestyle
+
+
+
+&#x20;   ProductCreateRequest:
+
+&#x20;     type: object
+
+&#x20;     required:
+
+&#x20;       - name
+
+&#x20;       - category
+
+&#x20;       - price
+
+&#x20;     properties:
+
+&#x20;       name:
+
+&#x20;         type: string
+
+&#x20;       category:
+
+&#x20;         $ref: '#/components/schemas/ProductCategory'
+
+&#x20;       price:
+
+&#x20;         type: number
+
+&#x20;         format: double
+
+&#x20;       description:
+
+&#x20;         type: string
+
+&#x20;         nullable: true
+
+
+
+&#x20;   ProductUpdateRequest:
+
+&#x20;     type: object
+
+&#x20;     properties:
+
+&#x20;       name:
+
+&#x20;         type: string
+
+&#x20;       category:
+
+&#x20;         $ref: '#/components/schemas/ProductCategory'
+
+&#x20;       price:
+
+&#x20;         type: number
+
+&#x20;         format: double
+
+&#x20;       description:
+
+&#x20;         type: string
+
+&#x20;         nullable: true
+
+
+
+&#x20;   ProductResponse:
+
+&#x20;     allOf:
+
+&#x20;       - $ref: '#/components/schemas/ProductCreateRequest'
+
+&#x20;       - type: object
+
+&#x20;         properties:
+
+&#x20;           id:
+
+&#x20;             type: integer
+
+
+
+&#x20;   # -------------------------
+
+&#x20;   # Order
+
+&#x20;   # -------------------------
+
+&#x20;   OrderStatus:
+
+&#x20;     type: string
+
+&#x20;     enum:
+
+&#x20;       - Placed
+
+&#x20;       - Pending
+
+&#x20;       - InTransit
+
+&#x20;       - Delivered
+
+&#x20;       - Cancelled
+
+
+
+&#x20;   OrderItem:
+
+&#x20;     type: object
+
+&#x20;     properties:
+
+&#x20;       productId:
+
+&#x20;         type: integer
+
+&#x20;       name:
+
+&#x20;         type: string
+
+&#x20;       price:
+
+&#x20;         type: number
+
+&#x20;         format: double
+
+&#x20;       quantity:
+
+&#x20;         type: integer
+
+&#x20;         minimum: 1
+
+&#x20;       subtotal:
+
+&#x20;         type: number
+
+&#x20;         format: double
+
+&#x20;     required:
+
+&#x20;       - productId
+
+&#x20;       - name
+
+&#x20;       - price
+
+&#x20;       - quantity
+
+&#x20;       - subtotal
+
+
+
+&#x20;   OrderCreateRequest:
+
+&#x20;     type: object
+
+&#x20;     properties:
+
+&#x20;       customerId:
+
+&#x20;         type: integer
+
+&#x20;       address:
+
+&#x20;         $ref: '#/components/schemas/Address'
+
+&#x20;       items:
+
+&#x20;         type: array
+
+&#x20;         items:
+
+&#x20;           $ref: '#/components/schemas/OrderItem'
+
+&#x20;     description: >
+
+&#x20;       If items are omitted, the order is created from the customer's basket.
+
+
+
+&#x20;   OrderStatusUpdateRequest:
+
+&#x20;     type: object
+
+&#x20;     required:
+
+&#x20;       - status
+
+&#x20;     properties:
+
+&#x20;       status:
+
+&#x20;         $ref: '#/components/schemas/OrderStatus'
+
+
+
+&#x20;   OrderResponse:
+
+&#x20;     type: object
+
+&#x20;     properties:
+
+&#x20;       id:
+
+&#x20;         type: integer
+
+&#x20;       customerId:
+
+&#x20;         type: integer
+
+&#x20;       address:
+
+&#x20;         $ref: '#/components/schemas/Address'
+
+&#x20;       items:
+
+&#x20;         type: array
+
+&#x20;         items:
+
+&#x20;           $ref: '#/components/schemas/OrderItem'
+
+&#x20;       total:
+
+&#x20;         type: number
+
+&#x20;         format: double
+
+&#x20;       status:
+
+&#x20;         $ref: '#/components/schemas/OrderStatus'
+
+&#x20;     required:
+
+&#x20;       - id
+
+&#x20;       - customerId
+
+&#x20;       - items
+
+&#x20;       - total
+
+&#x20;       - status
+
+
+
+&#x20;   # -------------------------
+
+&#x20;   # Notification
+
+&#x20;   # -------------------------
+
+&#x20;   NotificationCreateRequest:
+
+&#x20;     type: object
+
+&#x20;     required:
+
+&#x20;       - message
+
+&#x20;     properties:
+
+&#x20;       message:
+
+&#x20;         type: string
+
+
+
+&#x20;   NotificationBroadcastRequest:
+
+&#x20;     type: object
+
+&#x20;     required:
+
+&#x20;       - message
+
+&#x20;     properties:
+
+&#x20;       message:
+
+&#x20;         type: string
+
+
+
+&#x20;   NotificationAreaBroadcastRequest:
+
+&#x20;     type: object
+
+&#x20;     required:
+
+&#x20;       - message
+
+&#x20;     properties:
+
+&#x20;       message:
+
+&#x20;         type: string
+
+&#x20;       postcode:
+
+&#x20;         type: integer
+
+&#x20;         nullable: true
+
+&#x20;       state:
+
+&#x20;         type: string
+
+&#x20;         nullable: true
+
+&#x20;       country:
+
+&#x20;         type: string
+
+&#x20;         nullable: true
+
+
+
+&#x20;   NotificationResponse:
+
+&#x20;     type: object
+
+&#x20;     properties:
+
+&#x20;       id:
+
+&#x20;         type: integer
+
+&#x20;       customerId:
+
+&#x20;         type: integer
+
+&#x20;       type:
+
+&#x20;         type: string
+
+&#x20;         enum: \[Email, Phone]
+
+&#x20;       message:
+
+&#x20;         type: string
+
+&#x20;       sent:
+
+&#x20;         type: string
+
+&#x20;         format: date-time
+
+&#x20;     required:
+
+&#x20;       - id
+
+&#x20;       - customerId
+
+&#x20;       - type
+
+&#x20;       - message
+
+&#x20;       - sent
+
+
+
+&#x20;   # -------------------------
+
+&#x20;   # Error
+
+&#x20;   # -------------------------
+
+&#x20;   ErrorResponse:
+
+&#x20;     type: object
+
+&#x20;     properties:
+
+&#x20;       code:
+
+&#x20;         type: string
+
+&#x20;       message:
+
+&#x20;         type: string
+
+&#x20;       timestamp:
+
+&#x20;         type: string
+
+&#x20;         format: date-time
+
+
+
+&#x20; responses:
+
+&#x20;   BadRequest:
+
+&#x20;     description: Invalid request
+
+&#x20;     content:
+
+&#x20;       application/json:
+
+&#x20;         schema:
+
+&#x20;           $ref: '#/components/schemas/ErrorResponse'
+
+&#x20;   NotFound:
+
+&#x20;     description: Resource not found
+
+&#x20;     content:
+
+&#x20;       application/json:
+
+&#x20;         schema:
+
+&#x20;           $ref: '#/components/schemas/ErrorResponse'
+
+
+

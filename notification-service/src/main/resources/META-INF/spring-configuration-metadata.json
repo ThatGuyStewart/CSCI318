@@ -1,0 +1,9 @@
+{
+  "properties": [
+    {
+      "name": "customer.service.url",
+      "type": "java.lang.String",
+      "description": "Base URL for the customer service calls."
+    }
+  ]
+}
