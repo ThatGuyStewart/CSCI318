@@ -6,13 +6,12 @@ import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import static org.mockito.ArgumentMatchers.eq;
-import org.mockito.Mockito;
+import static org.mockito.Mockito.when;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -35,7 +34,8 @@ import com.retail.customer.dto.ProductDto;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-public class CustomerServiceIntegrationTest {
+@SuppressWarnings({"null", "unused"})
+class CustomerServiceIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -43,15 +43,16 @@ public class CustomerServiceIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockBean
+        @MockitoBean
     private ProductClient productClient;
 
     private AddressDto sampleAddress;
 
     @BeforeEach
+        @SuppressWarnings("unused")
     void setUp() {
         sampleAddress = new AddressDto(12, 100, "George St", "Sydney CBD", "Sydney", 2000, "NSW", "Australia");
-        Mockito.when(productClient.getProductById(eq(101L))).thenReturn(
+                when(productClient.getProductById(101L)).thenReturn(
                 Optional.of(new ProductDto(101L, "Laptop", "Electronics", 1200.0, "High end laptop"))
         );
     }
@@ -76,7 +77,7 @@ public class CustomerServiceIntegrationTest {
         CustomerResponse created = objectMapper.readValue(responseJson, CustomerResponse.class);
 
         // Get by ID
-        mockMvc.perform(get("/customer/id/" + created.getId()))
+        mockMvc.perform(get("/customer/" + created.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(created.getId()))
                 .andExpect(jsonPath("$.name").value("John Doe"));
@@ -103,7 +104,7 @@ public class CustomerServiceIntegrationTest {
 
     @Test
     void testGetCustomerNotFound_Returns404() throws Exception {
-        mockMvc.perform(get("/customer/id/99999"))
+        mockMvc.perform(get("/customer/99999"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
@@ -126,7 +127,7 @@ public class CustomerServiceIntegrationTest {
                 "Alice Johnson", null, null, ContactMethod.Email, null
         );
 
-        mockMvc.perform(put("/customer/id/" + created.getId())
+        mockMvc.perform(put("/customer/" + created.getId())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(updateRequest)))
                 .andExpect(status().isOk())
@@ -137,7 +138,7 @@ public class CustomerServiceIntegrationTest {
         AddressUpdateRequest addressUpdate = new AddressUpdateRequest(
                 5, 200, "Pitt St", "Sydney CBD", "Sydney", 2000, "NSW", "Australia"
         );
-        mockMvc.perform(put("/customer/id/" + created.getId() + "/address")
+        mockMvc.perform(put("/customer/" + created.getId() + "/address")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(addressUpdate)))
                 .andExpect(status().isOk())
@@ -160,11 +161,11 @@ public class CustomerServiceIntegrationTest {
         CustomerResponse created = objectMapper.readValue(responseJson, CustomerResponse.class);
 
         // Delete
-        mockMvc.perform(delete("/customer/id/" + created.getId()))
+        mockMvc.perform(delete("/customer/" + created.getId()))
                 .andExpect(status().isNoContent());
 
         // Get after delete should be 404
-        mockMvc.perform(get("/customer/id/" + created.getId()))
+        mockMvc.perform(get("/customer/" + created.getId()))
                 .andExpect(status().isNotFound());
     }
 
@@ -183,7 +184,7 @@ public class CustomerServiceIntegrationTest {
         CustomerResponse created = objectMapper.readValue(responseJson, CustomerResponse.class);
 
         // Initial Basket should be empty
-        mockMvc.perform(get("/customer/id/" + created.getId() + "/basket"))
+        mockMvc.perform(get("/customer/" + created.getId() + "/basket"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.customerId").value(created.getId()))
                 .andExpect(jsonPath("$.items", hasSize(0)))
@@ -191,7 +192,7 @@ public class CustomerServiceIntegrationTest {
 
         // Add 2 Laptops
         BasketAddRequest addRequest = new BasketAddRequest(101L, 2);
-        mockMvc.perform(post("/customer/id/" + created.getId() + "/basket/items")
+        mockMvc.perform(post("/customer/" + created.getId() + "/basket/items")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(addRequest)))
                 .andExpect(status().isOk())
@@ -203,7 +204,7 @@ public class CustomerServiceIntegrationTest {
 
         // Remove 1 Laptop
         BasketRemoveRequest removeRequest = new BasketRemoveRequest(101L, 1);
-        mockMvc.perform(delete("/customer/id/" + created.getId() + "/basket/items")
+        mockMvc.perform(delete("/customer/" + created.getId() + "/basket/items")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(removeRequest)))
                 .andExpect(status().isOk())
@@ -211,7 +212,7 @@ public class CustomerServiceIntegrationTest {
                 .andExpect(jsonPath("$.total").value(1200.0));
 
         // Remove remaining quantity -> item should be removed completely
-        mockMvc.perform(delete("/customer/id/" + created.getId() + "/basket/items")
+        mockMvc.perform(delete("/customer/" + created.getId() + "/basket/items")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(removeRequest)))
                 .andExpect(status().isOk())

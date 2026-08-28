@@ -1,15 +1,21 @@
 package com.retail.order.client;
 
-import com.retail.order.dto.BasketDto;
-import com.retail.order.dto.CustomerDto;
+import java.util.Optional;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
-import java.util.Optional;
+import com.retail.order.dto.BasketDto;
+import com.retail.order.dto.CustomerDto;
 
 @Component
 public class CustomerClient {
+
+    private static final Logger logger = LoggerFactory.getLogger(CustomerClient.class);
 
     private final RestClient restClient;
     private final String customerServiceUrl;
@@ -22,7 +28,7 @@ public class CustomerClient {
     public Optional<CustomerDto> getCustomerById(Long customerId) {
         try {
             CustomerDto customer = restClient.get()
-                    .uri(customerServiceUrl + "/customer/id/" + customerId)
+                    .uri(customerServiceUrl + "/customer/" + customerId)
                     .retrieve()
                     .body(CustomerDto.class);
             return Optional.ofNullable(customer);
@@ -58,7 +64,7 @@ public class CustomerClient {
     public Optional<BasketDto> getCustomerBasket(Long customerId) {
         try {
             BasketDto basket = restClient.get()
-                    .uri(customerServiceUrl + "/customer/id/" + customerId + "/basket")
+                    .uri(customerServiceUrl + "/customer/" + customerId + "/basket")
                     .retrieve()
                     .body(BasketDto.class);
             return Optional.ofNullable(basket);
@@ -70,10 +76,11 @@ public class CustomerClient {
     public void clearCustomerBasket(Long customerId) {
         try {
             restClient.delete()
-                    .uri(customerServiceUrl + "/customer/id/" + customerId + "/basket/clear")
+                    .uri(customerServiceUrl + "/customer/" + customerId + "/basket/clear")
                     .retrieve()
                     .toBodilessEntity();
-        } catch (Exception ignored) {
+        } catch (RestClientException exception) {
+            logger.warn("Failed to clear basket for customer {}", customerId, exception);
         }
     }
 }

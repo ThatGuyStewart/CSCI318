@@ -25,7 +25,7 @@ public class NotificationClient {
     public void sendNotificationToCustomer(Long customerId, String message) {
         try {
             restClient.post()
-                    .uri(notificationServiceUrl + "/notification/customer/id/" + customerId)
+                    .uri(notificationServiceUrl + "/notification/customer/" + customerId)
                     .body(new NotificationCreateRequest(message))
                     .retrieve()
                     .toBodilessEntity();

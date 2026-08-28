@@ -1,6 +1,7 @@
 package com.retail.customer.service;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
@@ -21,7 +22,10 @@ import com.retail.customer.repository.CustomerRepository;
 
 @Service
 @Transactional
+@SuppressWarnings("null")
 public class BasketService {
+
+    private static final String CUSTOMER_ID_REQUIRED = "Customer ID is required";
 
     private final BasketRepository basketRepository;
     private final CustomerRepository customerRepository;
@@ -35,19 +39,21 @@ public class BasketService {
 
     @Transactional(readOnly = true)
     public BasketResponse getBasketByCustomerId(Long customerId) {
-        if (!customerRepository.existsById(customerId)) {
-            throw new ResourceNotFoundException("Customer not found with id: " + customerId);
+        Long resolvedCustomerId = requireCustomerId(customerId);
+        if (!customerRepository.existsById(resolvedCustomerId)) {
+            throw new ResourceNotFoundException("Customer not found with id: " + resolvedCustomerId);
         }
 
-        Basket basket = basketRepository.findById(customerId)
-                .orElseGet(() -> basketRepository.save(new Basket(customerId)));
+        Basket basket = basketRepository.findById(resolvedCustomerId)
+                .orElseGet(() -> basketRepository.save(new Basket(resolvedCustomerId)));
 
         return toBasketResponse(basket);
     }
 
     public BasketResponse addItemToBasket(Long customerId, BasketAddRequest request) {
-        if (!customerRepository.existsById(customerId)) {
-            throw new ResourceNotFoundException("Customer not found with id: " + customerId);
+        Long resolvedCustomerId = requireCustomerId(customerId);
+        if (!customerRepository.existsById(resolvedCustomerId)) {
+            throw new ResourceNotFoundException("Customer not found with id: " + resolvedCustomerId);
         }
         if (request.getProductId() == null) {
             throw new BadRequestException("Product ID is required");
@@ -56,8 +62,8 @@ public class BasketService {
             throw new BadRequestException("Quantity must be greater than 0");
         }
 
-        Basket basket = basketRepository.findById(customerId)
-                .orElseGet(() -> new Basket(customerId));
+        Basket basket = basketRepository.findById(resolvedCustomerId)
+            .orElseGet(() -> new Basket(resolvedCustomerId));
 
         // Fetch product info from Product Service
         Optional<ProductDto> productOpt = productClient.getProductById(request.getProductId());
@@ -76,8 +82,9 @@ public class BasketService {
     }
 
     public BasketResponse removeItemFromBasket(Long customerId, BasketRemoveRequest request) {
-        if (!customerRepository.existsById(customerId)) {
-            throw new ResourceNotFoundException("Customer not found with id: " + customerId);
+        Long resolvedCustomerId = requireCustomerId(customerId);
+        if (!customerRepository.existsById(resolvedCustomerId)) {
+            throw new ResourceNotFoundException("Customer not found with id: " + resolvedCustomerId);
         }
         if (request.getProductId() == null) {
             throw new BadRequestException("Product ID is required");
@@ -86,8 +93,8 @@ public class BasketService {
             throw new BadRequestException("Quantity must be greater than 0");
         }
 
-        Basket basket = basketRepository.findById(customerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Basket not found for customer: " + customerId));
+        Basket basket = basketRepository.findById(resolvedCustomerId)
+            .orElseThrow(() -> new ResourceNotFoundException("Basket not found for customer: " + resolvedCustomerId));
 
         basket.removeItem(request.getProductId(), request.getQuantity());
         Basket saved = basketRepository.save(basket);
@@ -96,10 +103,15 @@ public class BasketService {
     }
 
     public void clearBasket(Long customerId) {
-        basketRepository.findById(customerId).ifPresent(basket -> {
+        Long resolvedCustomerId = requireCustomerId(customerId);
+        basketRepository.findById(resolvedCustomerId).ifPresent(basket -> {
             basket.clear();
             basketRepository.save(basket);
         });
+    }
+
+    private Long requireCustomerId(Long customerId) {
+        return Objects.requireNonNull(customerId, CUSTOMER_ID_REQUIRED);
     }
 
     public BasketResponse toBasketResponse(Basket basket) {

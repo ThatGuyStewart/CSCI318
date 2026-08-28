@@ -55,13 +55,13 @@ Invoke-RestMethod -Uri "http://localhost:8081/customer" -Method GET
 --------------------------------------------------------------------------------
 1.3 Get Customer by ID (Feature C1 / C2)
 --------------------------------------------------------------------------------
-GET http://localhost:8081/customer/id/1
+GET http://localhost:8081/customer/1
 
 cURL:
-curl -X GET http://localhost:8081/customer/id/1
+curl -X GET http://localhost:8081/customer/1
 
 PowerShell:
-Invoke-RestMethod -Uri "http://localhost:8081/customer/id/1" -Method GET
+Invoke-RestMethod -Uri "http://localhost:8081/customer/1" -Method GET
 
 --------------------------------------------------------------------------------
 1.4 Get Customer by Email (Feature C1 / C2)
@@ -88,11 +88,11 @@ Invoke-RestMethod -Uri "http://localhost:8081/customer/phone/0412345678" -Method
 --------------------------------------------------------------------------------
 1.6 Update Customer Details (Feature C1)
 --------------------------------------------------------------------------------
-PUT http://localhost:8081/customer/id/1
+PUT http://localhost:8081/customer/1
 Content-Type: application/json
 
 cURL:
-curl -X PUT http://localhost:8081/customer/id/1 \
+curl -X PUT http://localhost:8081/customer/1 \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Johnathan Doe",
@@ -100,16 +100,16 @@ curl -X PUT http://localhost:8081/customer/id/1 \
   }'
 
 PowerShell:
-Invoke-RestMethod -Uri "http://localhost:8081/customer/id/1" -Method PUT -ContentType "application/json" -Body '{"name":"Johnathan Doe","contactMethod":"Phone"}'
+Invoke-RestMethod -Uri "http://localhost:8081/customer/1" -Method PUT -ContentType "application/json" -Body '{"name":"Johnathan Doe","contactMethod":"Phone"}'
 
 --------------------------------------------------------------------------------
 1.7 Update Customer Address (Feature C1)
 --------------------------------------------------------------------------------
-PUT http://localhost:8081/customer/id/1/address
+PUT http://localhost:8081/customer/1/address
 Content-Type: application/json
 
 cURL:
-curl -X PUT http://localhost:8081/customer/id/1/address \
+curl -X PUT http://localhost:8081/customer/1/address \
   -H "Content-Type: application/json" \
   -d '{
     "unitNumber": 5,
@@ -123,7 +123,7 @@ curl -X PUT http://localhost:8081/customer/id/1/address \
   }'
 
 PowerShell:
-Invoke-RestMethod -Uri "http://localhost:8081/customer/id/1/address" -Method PUT -ContentType "application/json" -Body '{"unitNumber":5,"streetNumber":200,"street":"Pitt St","suburb":"Sydney CBD","city":"Sydney","postcode":2000,"state":"NSW","country":"Australia"}'
+Invoke-RestMethod -Uri "http://localhost:8081/customer/1/address" -Method PUT -ContentType "application/json" -Body '{"unitNumber":5,"streetNumber":200,"street":"Pitt St","suburb":"Sydney CBD","city":"Sydney","postcode":2000,"state":"NSW","country":"Australia"}'
 
 --------------------------------------------------------------------------------
 1.8 View Customer Basket (Feature C3)
@@ -195,13 +195,13 @@ Invoke-RestMethod -Uri "http://localhost:8081/customer/1/event?date=2026-08-27" 
 --------------------------------------------------------------------------------
 1.13 Delete Customer (Feature C1)
 --------------------------------------------------------------------------------
-DELETE http://localhost:8081/customer/id/1
+DELETE http://localhost:8081/customer/1
 
 cURL:
-curl -X DELETE http://localhost:8081/customer/id/1
+curl -X DELETE http://localhost:8081/customer/1
 
 PowerShell:
-Invoke-RestMethod -Uri "http://localhost:8081/customer/id/1" -Method DELETE
+Invoke-RestMethod -Uri "http://localhost:8081/customer/1" -Method DELETE
 
 
 ================================================================================
@@ -483,29 +483,29 @@ Invoke-RestMethod -Uri "http://localhost:8083/order/1/event?date=2026-08-27" -Me
 --------------------------------------------------------------------------------
 4.1 Create Notification by Customer ID (Feature N1)
 --------------------------------------------------------------------------------
-POST http://localhost:8084/notification/customer/id/1
+POST http://localhost:8084/notification/customer/1
 Content-Type: application/json
 
 cURL:
-curl -X POST http://localhost:8084/notification/customer/id/1 \
+curl -X POST http://localhost:8084/notification/customer/1 \
   -H "Content-Type: application/json" \
   -d '{
     "message": "Your item has been dispatched with tracking #TRK-98124."
   }'
 
 PowerShell:
-Invoke-RestMethod -Uri "http://localhost:8084/notification/customer/id/1" -Method POST -ContentType "application/json" -Body '{"message":"Your item has been dispatched with tracking #TRK-98124."}'
+Invoke-RestMethod -Uri "http://localhost:8084/notification/customer/1" -Method POST -ContentType "application/json" -Body '{"message":"Your item has been dispatched with tracking #TRK-98124."}'
 
 --------------------------------------------------------------------------------
 4.2 Get Notifications by Customer ID (Feature N1)
 --------------------------------------------------------------------------------
-GET http://localhost:8084/notification/customer/id/1
+GET http://localhost:8084/notification/customer/1
 
 cURL:
-curl -X GET http://localhost:8084/notification/customer/id/1
+curl -X GET http://localhost:8084/notification/customer/1
 
 PowerShell:
-Invoke-RestMethod -Uri "http://localhost:8084/notification/customer/id/1" -Method GET
+Invoke-RestMethod -Uri "http://localhost:8084/notification/customer/1" -Method GET
 
 --------------------------------------------------------------------------------
 4.3 Create Notification by Customer Email (Feature N1)

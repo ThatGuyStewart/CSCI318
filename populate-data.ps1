@@ -207,8 +207,8 @@ Write-Host "`n[3/4] Adding Basket Items & Placing Orders..." -ForegroundColor Ye
 # Add items to Customer 1's basket
 $basketItem1 = @{ productId = 1; quantity = 2 } | ConvertTo-Json
 $basketItem2 = @{ productId = 4; quantity = 1 } | ConvertTo-Json
-$null = Invoke-RestMethod -Uri "http://localhost:8081/customer/id/1/basket/items" -Method POST -ContentType "application/json" -Body $basketItem1
-$null = Invoke-RestMethod -Uri "http://localhost:8081/customer/id/1/basket/items" -Method POST -ContentType "application/json" -Body $basketItem2
+$null = Invoke-RestMethod -Uri "http://localhost:8081/customer/1/basket/items" -Method POST -ContentType "application/json" -Body $basketItem1
+$null = Invoke-RestMethod -Uri "http://localhost:8081/customer/1/basket/items" -Method POST -ContentType "application/json" -Body $basketItem2
 Write-Host "  Added items to Customer 1's basket." -ForegroundColor Green
 
 # Order 1: Created from Customer 1's basket (omitting items in request)
@@ -263,7 +263,7 @@ Write-Host "`n[4/4] Sending Sample Notifications..." -ForegroundColor Yellow
 
 # Direct by Customer ID
 $notifCust1 = @{ message = "Exclusive VIP Reward: Enjoy 15% off your next purchase with code VIP15." } | ConvertTo-Json
-$resN1 = Invoke-RestMethod -Uri "http://localhost:8084/notification/customer/id/1" -Method POST -ContentType "application/json" -Body $notifCust1
+$resN1 = Invoke-RestMethod -Uri "http://localhost:8084/notification/customer/1" -Method POST -ContentType "application/json" -Body $notifCust1
 Write-Host "  Sent Notification #$($resN1.id) to Customer 1 via $($resN1.type)" -ForegroundColor Green
 
 # Direct by Customer Email

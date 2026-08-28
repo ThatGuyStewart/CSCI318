@@ -1,33 +1,48 @@
 package com.retail.order;
 
+import java.util.List;
+import java.util.Optional;
+
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.hasSize;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.retail.order.client.CustomerClient;
 import com.retail.order.client.NotificationClient;
 import com.retail.order.client.ProductClient;
 import com.retail.order.domain.OrderStatus;
-import com.retail.order.dto.*;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
-
-import java.util.List;
-import java.util.Optional;
-
-import static org.hamcrest.Matchers.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import com.retail.order.dto.AddressDto;
+import com.retail.order.dto.BasketDto;
+import com.retail.order.dto.BasketItemDto;
+import com.retail.order.dto.CustomerDto;
+import com.retail.order.dto.OrderCreateRequest;
+import com.retail.order.dto.OrderItemDto;
+import com.retail.order.dto.OrderResponse;
+import com.retail.order.dto.OrderStatusUpdateRequest;
+import com.retail.order.dto.ProductDto;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-public class OrderServiceIntegrationTest {
+@SuppressWarnings({"null", "unused"})
+class OrderServiceIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -35,28 +50,29 @@ public class OrderServiceIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockBean
+        @MockitoBean
     private CustomerClient customerClient;
 
-    @MockBean
+        @MockitoBean
     private ProductClient productClient;
 
-    @MockBean
+        @MockitoBean
     private NotificationClient notificationClient;
 
     private AddressDto sampleAddress;
     private CustomerDto sampleCustomer;
 
     @BeforeEach
+        @SuppressWarnings("unused")
     void setUp() {
         sampleAddress = new AddressDto(1, 10, "George St", "Sydney", "Sydney", 2000, "NSW", "Australia");
         sampleCustomer = new CustomerDto(1L, "John Doe", "john@example.com", "0412345678", "Email", sampleAddress);
 
-        Mockito.when(customerClient.getCustomerById(eq(1L))).thenReturn(Optional.of(sampleCustomer));
-        Mockito.when(customerClient.getCustomerByEmail(eq("john@example.com"))).thenReturn(Optional.of(sampleCustomer));
-        Mockito.when(customerClient.getCustomerByPhone(eq("0412345678"))).thenReturn(Optional.of(sampleCustomer));
+                when(customerClient.getCustomerById(1L)).thenReturn(Optional.of(sampleCustomer));
+                when(customerClient.getCustomerByEmail("john@example.com")).thenReturn(Optional.of(sampleCustomer));
+                when(customerClient.getCustomerByPhone("0412345678")).thenReturn(Optional.of(sampleCustomer));
 
-        Mockito.when(productClient.getProductById(eq(50L))).thenReturn(
+                when(productClient.getProductById(50L)).thenReturn(
                 Optional.of(new ProductDto(50L, "Coffee Beans", "Grocery", 25.0, "Arabica beans"))
         );
     }
@@ -85,7 +101,7 @@ public class OrderServiceIntegrationTest {
                 .andExpect(jsonPath("$.id").value(created.getId()));
 
         // Check notification client called
-        Mockito.verify(notificationClient, Mockito.atLeastOnce())
+        verify(notificationClient, atLeastOnce())
                 .sendNotificationToCustomer(eq(1L), any());
     }
 
@@ -105,7 +121,7 @@ public class OrderServiceIntegrationTest {
     void testCreateOrderFromCustomerBasket_HappyPath() throws Exception {
         BasketItemDto basketItem = new BasketItemDto(50L, "Coffee Beans", 25.0, 3, 75.0);
         BasketDto basket = new BasketDto(1L, List.of(basketItem), 75.0);
-        Mockito.when(customerClient.getCustomerBasket(eq(1L))).thenReturn(Optional.of(basket));
+        when(customerClient.getCustomerBasket(1L)).thenReturn(Optional.of(basket));
 
         // Create order with no items -> fetches from basket
         OrderCreateRequest request = new OrderCreateRequest(1L, null, null);
@@ -119,12 +135,12 @@ public class OrderServiceIntegrationTest {
                 .andExpect(jsonPath("$.items", hasSize(1)));
 
         // Verify basket cleared
-        Mockito.verify(customerClient).clearCustomerBasket(eq(1L));
+        verify(customerClient).clearCustomerBasket(1L);
     }
 
     @Test
     void testCreateOrder_ValidationFail_EmptyBasket() throws Exception {
-        Mockito.when(customerClient.getCustomerBasket(eq(1L))).thenReturn(Optional.of(new BasketDto(1L, List.of(), 0.0)));
+        when(customerClient.getCustomerBasket(1L)).thenReturn(Optional.of(new BasketDto(1L, List.of(), 0.0)));
 
         OrderCreateRequest request = new OrderCreateRequest(1L, null, null);
 

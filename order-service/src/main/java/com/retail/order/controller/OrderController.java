@@ -1,15 +1,27 @@
 package com.retail.order.controller;
 
-import com.retail.order.dto.*;
-import com.retail.order.service.OrderService;
-import jakarta.validation.Valid;
+import java.time.LocalDate;
+import java.util.List;
+
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDate;
-import java.util.List;
+import com.retail.order.dto.DomainEventEnvelope;
+import com.retail.order.dto.OrderCreateRequest;
+import com.retail.order.dto.OrderResponse;
+import com.retail.order.dto.OrderStatusUpdateRequest;
+import com.retail.order.service.OrderService;
+
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/order")
@@ -43,7 +55,7 @@ public class OrderController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping({"/customer/{customerId}", "/customer/id/{customerId}"})
+    @GetMapping("/customer/{customerId}")
     public ResponseEntity<List<OrderResponse>> getOrdersByCustomerId(@PathVariable("customerId") Long customerId) {
         List<OrderResponse> responses = orderService.getOrdersByCustomerId(customerId);
         return ResponseEntity.ok(responses);
@@ -87,14 +99,6 @@ public class OrderController {
             @RequestParam(value = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(value = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         return ResponseEntity.ok(orderService.getOrderEventsById(id, date, from, to));
-    }
-
-    @GetMapping("/customer/id/{customerId}/event")
-    public ResponseEntity<List<DomainEventEnvelope>> getOrderEventsByCustomerId(@PathVariable("customerId") Long customerId,
-            @RequestParam(value = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            @RequestParam(value = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam(value = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
-        return ResponseEntity.ok(orderService.getOrderEventsByCustomerId(customerId, date, from, to));
     }
 
     @GetMapping("/customer/email/{email}/event")

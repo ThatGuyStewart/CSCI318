@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,11 +31,14 @@ import com.retail.customer.repository.CustomerRepository;
 
 @Service
 @Transactional
+@SuppressWarnings("null")
 public class CustomerService {
 
     private static final String CUSTOMER_NOT_FOUND_ID = "Customer not found with id: ";
     private static final String CUSTOMER_NOT_FOUND_EMAIL = "Customer not found with email: ";
     private static final String CUSTOMER_NOT_FOUND_PHONE = "Customer not found with phone: ";
+    private static final String CUSTOMER_ID_REQUIRED = "Customer ID is required";
+    private static final String CUSTOMER_REQUIRED = "Customer is required";
 
     private final CustomerRepository customerRepository;
     private final BasketRepository basketRepository;
@@ -79,8 +83,9 @@ public class CustomerService {
 
     @Transactional(readOnly = true)
     public CustomerResponse getCustomerById(Long id) {
-        Customer customer = customerRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(CUSTOMER_NOT_FOUND_ID + id));
+        Long customerId = requireCustomerId(id);
+        Customer customer = customerRepository.findById(customerId)
+            .orElseThrow(() -> new ResourceNotFoundException(CUSTOMER_NOT_FOUND_ID + customerId));
         return toCustomerResponse(customer);
     }
 
@@ -126,11 +131,12 @@ public class CustomerService {
 
     @Transactional(readOnly = true)
     public List<DomainEventEnvelope> getCustomerEventsById(Long customerId, LocalDate date, LocalDate from, LocalDate to) {
-        customerRepository.findById(customerId)
-                .orElseThrow(() -> new ResourceNotFoundException(CUSTOMER_NOT_FOUND_ID + customerId));
+        Long resolvedCustomerId = requireCustomerId(customerId);
+        customerRepository.findById(resolvedCustomerId)
+            .orElseThrow(() -> new ResourceNotFoundException(CUSTOMER_NOT_FOUND_ID + resolvedCustomerId));
         List<DomainEventEnvelope> events = buildCustomerEvents(date, from, to);
         return events.stream()
-                .filter(event -> event.getAggregateId().equals(customerId))
+            .filter(event -> event.getAggregateId().equals(resolvedCustomerId))
                 .toList();
     }
 
@@ -180,8 +186,9 @@ public class CustomerService {
     }
 
     public CustomerResponse updateCustomer(Long id, CustomerUpdateRequest request) {
-        Customer customer = customerRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(CUSTOMER_NOT_FOUND_ID + id));
+        Long customerId = requireCustomerId(id);
+        Customer customer = customerRepository.findById(customerId)
+            .orElseThrow(() -> new ResourceNotFoundException(CUSTOMER_NOT_FOUND_ID + customerId));
 
         if (request.getName() != null && !request.getName().isBlank()) {
             customer.setName(request.getName());
@@ -205,27 +212,33 @@ public class CustomerService {
             customer.setAddress(toAddress(request.getAddress()));
         }
 
-        Customer updated = customerRepository.save(customer);
+        Customer updated = customerRepository.save(Objects.requireNonNull(customer, CUSTOMER_REQUIRED));
         return toCustomerResponse(updated);
     }
 
     public AddressResponse updateCustomerAddress(Long id, AddressUpdateRequest request) {
-        Customer customer = customerRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(CUSTOMER_NOT_FOUND_ID + id));
+        Long customerId = requireCustomerId(id);
+        Customer customer = customerRepository.findById(customerId)
+            .orElseThrow(() -> new ResourceNotFoundException(CUSTOMER_NOT_FOUND_ID + customerId));
 
         Address address = toAddress(request);
         customer.setAddress(address);
-        customerRepository.save(customer);
+        customerRepository.save(Objects.requireNonNull(customer, CUSTOMER_REQUIRED));
 
-        return toAddressResponse(id, address);
+        return toAddressResponse(customerId, address);
     }
 
     public void deleteCustomer(Long id) {
-        Customer customer = customerRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(CUSTOMER_NOT_FOUND_ID + id));
+        Long customerId = requireCustomerId(id);
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new ResourceNotFoundException(CUSTOMER_NOT_FOUND_ID + customerId));
 
-        basketRepository.deleteById(id);
-        customerRepository.delete(customer);
+        basketRepository.deleteById(customerId);
+        customerRepository.delete(Objects.requireNonNull(customer, CUSTOMER_REQUIRED));
+    }
+
+    private Long requireCustomerId(Long customerId) {
+        return Objects.requireNonNull(customerId, CUSTOMER_ID_REQUIRED);
     }
 
     public CustomerResponse toCustomerResponse(Customer customer) {

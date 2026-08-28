@@ -26,7 +26,8 @@ import com.retail.product.dto.ProductUpdateRequest;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-public class ProductServiceIntegrationTest {
+@SuppressWarnings("null")
+class ProductServiceIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;

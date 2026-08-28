@@ -142,9 +142,9 @@ echo.
 echo [3/4] Adding Basket Items & Placing Orders...
 
 :: Add products to Customer 1's basket
-curl -s -X POST http://localhost:8081/customer/id/1/basket/items -H "Content-Type: application/json" -d "{\"productId\":1,\"quantity\":2}"
+curl -s -X POST http://localhost:8081/customer/1/basket/items -H "Content-Type: application/json" -d "{\"productId\":1,\"quantity\":2}"
 echo.
-curl -s -X POST http://localhost:8081/customer/id/1/basket/items -H "Content-Type: application/json" -d "{\"productId\":4,\"quantity\":1}"
+curl -s -X POST http://localhost:8081/customer/1/basket/items -H "Content-Type: application/json" -d "{\"productId\":4,\"quantity\":1}"
 echo.
 
 :: Order 1: From Customer 1's basket
@@ -188,7 +188,7 @@ echo [4/4] Sending Sample Notifications...
 
 :: Direct notification by Customer ID
 echo Sending notification to Customer 1 by ID...
-curl -s -X POST http://localhost:8084/notification/customer/id/1 -H "Content-Type: application/json" -d "{\"message\":\"Exclusive VIP Reward: Enjoy 15%% off your next purchase with code VIP15.\"}"
+curl -s -X POST http://localhost:8084/notification/customer/1 -H "Content-Type: application/json" -d "{\"message\":\"Exclusive VIP Reward: Enjoy 15%% off your next purchase with code VIP15.\"}"
 echo.
 
 :: Direct notification by Email

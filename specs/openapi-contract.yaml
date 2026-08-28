@@ -126,7 +126,7 @@ paths:
 
 
 
-&#x20; /customer/id/{id}:
+&#x20; /customer/{id}:
 
 &#x20;   get:
 
@@ -248,7 +248,7 @@ paths:
 
 
 
-&#x20; /customer/id/{id}/address:
+&#x20; /customer/{id}/address:
 
 &#x20;   put:
 
@@ -302,7 +302,7 @@ paths:
 
 
 
-&#x20; /customer/id/{id}/basket:
+&#x20; /customer/{id}/basket:
 
 &#x20;   get:
 
@@ -344,7 +344,7 @@ paths:
 
 
 
-&#x20; /customer/id/{id}/basket/items:
+&#x20; /customer/{id}/basket/items:
 
 &#x20;   post:
 
@@ -1408,7 +1408,7 @@ paths:
 
 
 
-&#x20; /order/customer/id/{customerId}:
+&#x20; /order/customer/{customerId}:
 
 &#x20;   get:
 
@@ -1798,7 +1798,7 @@ paths:
 
 
 
-&#x20; /order/customer/id/{customerId}/event:
+&#x20; /order/customer/{customerId}/event:
 
 &#x20;   get:
 
@@ -2092,7 +2092,7 @@ paths:
 
 &#x20; # ============================================================
 
-&#x20; /notification/customer/id/{customerId}:
+&#x20; /notification/customer/{customerId}:
 
 &#x20;   post:
 

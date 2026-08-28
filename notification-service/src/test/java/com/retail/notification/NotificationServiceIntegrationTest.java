@@ -1,30 +1,38 @@
 package com.retail.notification;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.retail.notification.client.CustomerClient;
-import com.retail.notification.dto.*;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
-
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
-import static org.hamcrest.Matchers.*;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.hasSize;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import static org.mockito.Mockito.when;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.retail.notification.client.CustomerClient;
+import com.retail.notification.dto.AddressDto;
+import com.retail.notification.dto.CustomerDto;
+import com.retail.notification.dto.NotificationAreaBroadcastRequest;
+import com.retail.notification.dto.NotificationBroadcastRequest;
+import com.retail.notification.dto.NotificationCreateRequest;
+import com.retail.notification.dto.NotificationResponse;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-public class NotificationServiceIntegrationTest {
+@SuppressWarnings({"null", "unused"})
+class NotificationServiceIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -32,13 +40,14 @@ public class NotificationServiceIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockBean
+        @MockitoBean
     private CustomerClient customerClient;
 
     private CustomerDto cust1;
     private CustomerDto cust2;
 
     @BeforeEach
+        @SuppressWarnings("unused")
     void setUp() {
         AddressDto addr1 = new AddressDto(null, 10, "George St", "Sydney", "Sydney", 2000, "NSW", "Australia");
         AddressDto addr2 = new AddressDto(null, 20, "Bourke St", "Melbourne", "Melbourne", 3000, "VIC", "Australia");
@@ -46,18 +55,18 @@ public class NotificationServiceIntegrationTest {
         cust1 = new CustomerDto(1L, "Alice", "alice@test.com", "0400111222", "Email", addr1);
         cust2 = new CustomerDto(2L, "Bob", "bob@test.com", "0400333444", "Phone", addr2);
 
-        Mockito.when(customerClient.getCustomerById(eq(1L))).thenReturn(Optional.of(cust1));
-        Mockito.when(customerClient.getCustomerById(eq(2L))).thenReturn(Optional.of(cust2));
-        Mockito.when(customerClient.getCustomerByEmail(eq("alice@test.com"))).thenReturn(Optional.of(cust1));
-        Mockito.when(customerClient.getCustomerByPhone(eq("0400333444"))).thenReturn(Optional.of(cust2));
-        Mockito.when(customerClient.getAllCustomers()).thenReturn(List.of(cust1, cust2));
+        when(customerClient.getCustomerById(1L)).thenReturn(Optional.of(cust1));
+        when(customerClient.getCustomerById(2L)).thenReturn(Optional.of(cust2));
+        when(customerClient.getCustomerByEmail("alice@test.com")).thenReturn(Optional.of(cust1));
+        when(customerClient.getCustomerByPhone("0400333444")).thenReturn(Optional.of(cust2));
+        when(customerClient.getAllCustomers()).thenReturn(List.of(cust1, cust2));
     }
 
     @Test
     void testCreateAndGetByCustomerId_HappyPath() throws Exception {
         NotificationCreateRequest request = new NotificationCreateRequest("Welcome to the retail platform!");
 
-        String responseJson = mockMvc.perform(post("/notification/customer/id/1")
+        String responseJson = mockMvc.perform(post("/notification/customer/1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -75,7 +84,7 @@ public class NotificationServiceIntegrationTest {
                 .andExpect(jsonPath("$.id").value(created.getId()));
 
         // Get by customer ID
-        mockMvc.perform(get("/notification/customer/id/1"))
+        mockMvc.perform(get("/notification/customer/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(1))));
     }
@@ -127,7 +136,7 @@ public class NotificationServiceIntegrationTest {
     @Test
     void testDateRangeQueries() throws Exception {
         NotificationCreateRequest request = new NotificationCreateRequest("Dated Notification");
-        mockMvc.perform(post("/notification/customer/id/1")
+        mockMvc.perform(post("/notification/customer/1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated());
@@ -151,7 +160,7 @@ public class NotificationServiceIntegrationTest {
     void testCustomerNotFound_Returns404() throws Exception {
         NotificationCreateRequest request = new NotificationCreateRequest("Hello");
 
-        mockMvc.perform(post("/notification/customer/id/99999")
+        mockMvc.perform(post("/notification/customer/99999")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNotFound())
@@ -162,7 +171,7 @@ public class NotificationServiceIntegrationTest {
     void testValidationFailure_Returns400() throws Exception {
         NotificationCreateRequest request = new NotificationCreateRequest("");
 
-        mockMvc.perform(post("/notification/customer/id/1")
+        mockMvc.perform(post("/notification/customer/1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())

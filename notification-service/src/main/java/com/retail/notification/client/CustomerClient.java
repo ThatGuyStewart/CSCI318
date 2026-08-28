@@ -24,7 +24,7 @@ public class CustomerClient {
     public Optional<CustomerDto> getCustomerById(Long customerId) {
         try {
             CustomerDto customer = restClient.get()
-                    .uri(customerServiceUrl + "/customer/id/" + customerId)
+                    .uri(customerServiceUrl + "/customer/" + customerId)
                     .retrieve()
                     .body(CustomerDto.class);
             return Optional.ofNullable(customer);

@@ -256,7 +256,7 @@ Practical cURL and PowerShell examples for every endpoint are in [`api-examples.
 |---|---|---|
 | `POST` | `/customer` | Create a new customer |
 | `GET` | `/customer` | List all customers |
-| `GET` | `/customer/id/{id}` | Get customer by ID |
+| `GET` | `/customer/{id}` | Get customer by ID |
 | `GET` | `/customer/email/{email}` | Get customer by email |
 | `GET` | `/customer/phone/{phone}` | Get customer by phone |
 | `GET` | `/customer/state/{state}` | List customers by state |
@@ -296,14 +296,12 @@ Practical cURL and PowerShell examples for every endpoint are in [`api-examples.
 | `POST` | `/order/{id}/cancel` | Cancel an order |
 | `GET` | `/order/{id}` | Get order by ID |
 | `GET` | `/order/customer/{customerId}` | Get orders by customer ID |
-| `GET` | `/order/customer/id/{customerId}` | Get orders by customer ID (alternate path) |
 | `GET` | `/order/customer/email/{email}` | Get orders by customer email |
 | `GET` | `/order/customer/phone/{phone}` | Get orders by customer phone |
 | `GET` | `/order/product/{productId}` | Get orders containing a product |
 | `PUT` | `/order/{id}/status` | Update order status |
 | `GET` | `/order/customer/{customerId}/event` | Order events by customer ID |
 | `GET` | `/order/{id}/event` | Order events by order ID |
-| `GET` | `/order/customer/id/{customerId}/event` | Order events by customer ID alias |
 | `GET` | `/order/customer/email/{email}/event` | Order events by customer email |
 | `GET` | `/order/customer/phone/{phone}/event` | Order events by customer phone |
 | `GET` | `/order/product/{productId}/event` | Order events by product |
@@ -312,12 +310,12 @@ Practical cURL and PowerShell examples for every endpoint are in [`api-examples.
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/notification/customer/id/{customerId}` | Create notification by customer ID |
+| `POST` | `/notification/customer/{customerId}` | Create notification by customer ID |
 | `POST` | `/notification/customer/email/{email}` | Create notification by email |
 | `POST` | `/notification/customer/phone/{phone}` | Create notification by phone |
 | `POST` | `/notification/broadcast` | Broadcast to all customers |
 | `POST` | `/notification/broadcast/area` | Broadcast to customers in an area |
-| `GET` | `/notification/customer/id/{customerId}` | Get notifications by customer ID |
+| `GET` | `/notification/customer/{customerId}` | Get notifications by customer ID |
 | `GET` | `/notification/customer/email/{email}` | Get notifications by customer email |
 | `GET` | `/notification/customer/phone/{phone}` | Get notifications by customer phone |
 | `GET` | `/notification/date/{date}` | Get notifications by date |
