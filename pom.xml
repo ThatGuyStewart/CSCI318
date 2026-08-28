@@ -19,6 +19,7 @@
     <description>Online Retail Microservices Platform</description>
 
     <modules>
+        <module>retail-common</module>
         <module>customer-service</module>
         <module>product-service</module>
         <module>order-service</module>

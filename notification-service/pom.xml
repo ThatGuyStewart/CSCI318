@@ -15,6 +15,19 @@
     <name>notification-service</name>
     <description>Notification Microservice</description>
 
+    <dependencies>
+        <dependency>
+            <groupId>com.retail</groupId>
+            <artifactId>retail-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
+        </dependency>
+    </dependencies>
+
     <build>
         <plugins>
             <plugin>

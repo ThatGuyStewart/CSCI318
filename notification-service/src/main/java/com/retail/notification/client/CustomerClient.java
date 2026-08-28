@@ -1,30 +1,42 @@
 package com.retail.notification.client;
 
+import com.retail.common.ServiceUriBuilder;
+import com.retail.common.ServicePropertyKeys;
 import com.retail.notification.config.CustomerServiceProperties;
 import com.retail.notification.dto.CustomerDto;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 @Component
 public class CustomerClient {
 
     private final RestClient restClient;
-    private final String customerServiceUrl;
+    @NonNull
+    private final String customerCollectionUri;
+    private final String customerBaseUri;
 
     public CustomerClient(RestClient restClient, CustomerServiceProperties customerServiceProperties) {
         this.restClient = restClient;
-        this.customerServiceUrl = customerServiceProperties.getUrl();
+        String customerServiceUrl = Objects.requireNonNull(customerServiceProperties.getUrl(),
+            ServicePropertyKeys.CUSTOMER_SERVICE_URL + " must not be null");
+        String customerPath = Objects.requireNonNull(customerServiceProperties.getPath(),
+            ServicePropertyKeys.CUSTOMER_SERVICE_PATH + " must not be null");
+        this.customerCollectionUri = ServiceUriBuilder.resourceUri(customerServiceUrl, customerPath,
+            ServicePropertyKeys.CUSTOMER_SERVICE_URL, ServicePropertyKeys.CUSTOMER_SERVICE_PATH);
+        this.customerBaseUri = customerCollectionUri + "/";
     }
 
     public Optional<CustomerDto> getCustomerById(Long customerId) {
         try {
             CustomerDto customer = restClient.get()
-                    .uri(customerServiceUrl + "/customer/" + customerId)
+                    .uri(customerBaseUri + "{customerId}", customerId)
                     .retrieve()
                     .body(CustomerDto.class);
             return Optional.ofNullable(customer);
@@ -36,7 +48,7 @@ public class CustomerClient {
     public Optional<CustomerDto> getCustomerByEmail(String email) {
         try {
             CustomerDto customer = restClient.get()
-                    .uri(customerServiceUrl + "/customer/email/" + email)
+                    .uri(customerBaseUri + "email/{email}", email)
                     .retrieve()
                     .body(CustomerDto.class);
             return Optional.ofNullable(customer);
@@ -48,7 +60,7 @@ public class CustomerClient {
     public Optional<CustomerDto> getCustomerByPhone(String phone) {
         try {
             CustomerDto customer = restClient.get()
-                    .uri(customerServiceUrl + "/customer/phone/" + phone)
+                    .uri(customerBaseUri + "phone/{phone}", phone)
                     .retrieve()
                     .body(CustomerDto.class);
             return Optional.ofNullable(customer);
@@ -60,7 +72,7 @@ public class CustomerClient {
     public List<CustomerDto> getAllCustomers() {
         try {
             List<CustomerDto> customers = restClient.get()
-                    .uri(customerServiceUrl + "/customer")
+                .uri(customerCollectionUri)
                     .retrieve()
                     .body(new ParameterizedTypeReference<List<CustomerDto>>() {});
             return customers != null ? customers : Collections.emptyList();
@@ -68,4 +80,5 @@ public class CustomerClient {
             return Collections.emptyList();
         }
     }
+
 }

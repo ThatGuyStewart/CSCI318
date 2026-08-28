@@ -9,6 +9,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import com.retail.common.ServicePropertyKeys;
+import com.retail.common.ServiceUriBuilder;
 import com.retail.order.dto.BasketDto;
 import com.retail.order.dto.CustomerDto;
 
@@ -18,17 +20,20 @@ public class CustomerClient {
     private static final Logger logger = LoggerFactory.getLogger(CustomerClient.class);
 
     private final RestClient restClient;
-    private final String customerServiceUrl;
+    private final String customerBaseUri;
 
-    public CustomerClient(RestClient restClient, @Value("${customer.service.url:http://localhost:8081}") String customerServiceUrl) {
+    public CustomerClient(RestClient restClient,
+                          @Value("${" + ServicePropertyKeys.CUSTOMER_SERVICE_URL + ":http://localhost:8081}") String customerServiceUrl,
+                          @Value("${" + ServicePropertyKeys.CUSTOMER_SERVICE_PATH + ":/customer/}") String customerPath) {
         this.restClient = restClient;
-        this.customerServiceUrl = customerServiceUrl;
+        this.customerBaseUri = ServiceUriBuilder.resourceBaseUri(customerServiceUrl, customerPath,
+            ServicePropertyKeys.CUSTOMER_SERVICE_URL, ServicePropertyKeys.CUSTOMER_SERVICE_PATH);
     }
 
     public Optional<CustomerDto> getCustomerById(Long customerId) {
         try {
             CustomerDto customer = restClient.get()
-                    .uri(customerServiceUrl + "/customer/" + customerId)
+                    .uri(customerBaseUri + "{customerId}", customerId)
                     .retrieve()
                     .body(CustomerDto.class);
             return Optional.ofNullable(customer);
@@ -40,7 +45,7 @@ public class CustomerClient {
     public Optional<CustomerDto> getCustomerByEmail(String email) {
         try {
             CustomerDto customer = restClient.get()
-                    .uri(customerServiceUrl + "/customer/email/" + email)
+                    .uri(customerBaseUri + "email/{email}", email)
                     .retrieve()
                     .body(CustomerDto.class);
             return Optional.ofNullable(customer);
@@ -52,7 +57,7 @@ public class CustomerClient {
     public Optional<CustomerDto> getCustomerByPhone(String phone) {
         try {
             CustomerDto customer = restClient.get()
-                    .uri(customerServiceUrl + "/customer/phone/" + phone)
+                    .uri(customerBaseUri + "phone/{phone}", phone)
                     .retrieve()
                     .body(CustomerDto.class);
             return Optional.ofNullable(customer);
@@ -64,7 +69,7 @@ public class CustomerClient {
     public Optional<BasketDto> getCustomerBasket(Long customerId) {
         try {
             BasketDto basket = restClient.get()
-                    .uri(customerServiceUrl + "/customer/" + customerId + "/basket")
+                    .uri(customerBaseUri + "{customerId}/basket", customerId)
                     .retrieve()
                     .body(BasketDto.class);
             return Optional.ofNullable(basket);
@@ -76,11 +81,12 @@ public class CustomerClient {
     public void clearCustomerBasket(Long customerId) {
         try {
             restClient.delete()
-                    .uri(customerServiceUrl + "/customer/" + customerId + "/basket/clear")
+                    .uri(customerBaseUri + "{customerId}/basket/clear", customerId)
                     .retrieve()
                     .toBodilessEntity();
         } catch (RestClientException exception) {
             logger.warn("Failed to clear basket for customer {}", customerId, exception);
         }
     }
+
 }

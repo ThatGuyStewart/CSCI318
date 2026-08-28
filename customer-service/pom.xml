@@ -15,6 +15,14 @@
     <name>customer-service</name>
     <description>Customer Microservice</description>
 
+    <dependencies>
+        <dependency>
+            <groupId>com.retail</groupId>
+            <artifactId>retail-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+
     <build>
         <plugins>
             <plugin>
