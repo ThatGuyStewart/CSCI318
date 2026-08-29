@@ -29,6 +29,8 @@ public class Order {
     @Column(nullable = false)
     private OrderStatus status = OrderStatus.Placed;
 
+    private Long aggregateVersion;
+
     public Order() {
     }
 
@@ -86,5 +88,24 @@ public class Order {
 
     public void setStatus(OrderStatus status) {
         this.status = status;
+    }
+
+    public long nextAggregateVersion() {
+        aggregateVersion = getAggregateVersion() + 1;
+        return aggregateVersion;
+    }
+
+    public long getAggregateVersion() {
+        return aggregateVersion != null ? aggregateVersion : 0;
+    }
+
+    public boolean hasAggregateVersion() {
+        return aggregateVersion != null;
+    }
+
+    public void initializeAggregateVersion(long aggregateVersion) {
+        if (this.aggregateVersion == null) {
+            this.aggregateVersion = aggregateVersion;
+        }
     }
 }

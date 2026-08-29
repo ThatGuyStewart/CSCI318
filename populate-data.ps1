@@ -23,7 +23,7 @@ foreach ($svc in $endpoints.Keys) {
         $null = Invoke-RestMethod -Uri $endpoints[$svc] -Method GET -TimeoutSec 3 -ErrorAction SilentlyContinue
         Write-Host "  [OK] $svc is responsive." -ForegroundColor Green
     } catch {
-        Write-Host "  [WARNING] $svc might still be booting or endpoint is ready. Proceeding..." -ForegroundColor DarkYellow
+        Write-Host "  [WARNING] $svc might still be booting or endpoint isn't ready. Proceeding..." -ForegroundColor DarkYellow
     }
 }
 
@@ -207,8 +207,8 @@ Write-Host "`n[3/4] Adding Basket Items & Placing Orders..." -ForegroundColor Ye
 # Add items to Customer 1's basket
 $basketItem1 = @{ productId = 1; quantity = 2 } | ConvertTo-Json
 $basketItem2 = @{ productId = 4; quantity = 1 } | ConvertTo-Json
-$null = Invoke-RestMethod -Uri "http://localhost:8081/customer/1/basket/items" -Method POST -ContentType "application/json" -Body $basketItem1
-$null = Invoke-RestMethod -Uri "http://localhost:8081/customer/1/basket/items" -Method POST -ContentType "application/json" -Body $basketItem2
+$null = Invoke-RestMethod -Uri "http://localhost:8081/customer/1/basket" -Method POST -ContentType "application/json" -Body $basketItem1
+$null = Invoke-RestMethod -Uri "http://localhost:8081/customer/1/basket" -Method POST -ContentType "application/json" -Body $basketItem2
 Write-Host "  Added items to Customer 1's basket." -ForegroundColor Green
 
 # Order 1: Created from Customer 1's basket (omitting items in request)

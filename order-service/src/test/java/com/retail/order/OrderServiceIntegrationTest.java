@@ -1,5 +1,6 @@
 package com.retail.order;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -9,7 +10,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,8 +25,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.retail.common.DomainEventMessage;
+import com.retail.common.DomainEventPublisher;
 import com.retail.order.client.CustomerClient;
-import com.retail.order.client.NotificationClient;
 import com.retail.order.client.ProductClient;
 import com.retail.order.domain.OrderStatus;
 import com.retail.order.dto.AddressDto;
@@ -38,6 +39,7 @@ import com.retail.order.dto.OrderItemDto;
 import com.retail.order.dto.OrderResponse;
 import com.retail.order.dto.OrderStatusUpdateRequest;
 import com.retail.order.dto.ProductDto;
+import com.retail.order.repository.OrderSummaryViewRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -57,10 +59,13 @@ class OrderServiceIntegrationTest {
     private ProductClient productClient;
 
         @MockitoBean
-    private NotificationClient notificationClient;
+        private DomainEventPublisher domainEventPublisher;
 
     private AddressDto sampleAddress;
     private CustomerDto sampleCustomer;
+
+        @Autowired
+        private OrderSummaryViewRepository orderSummaryViewRepository;
 
     @BeforeEach
         @SuppressWarnings("unused")
@@ -100,9 +105,8 @@ class OrderServiceIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(created.getId()));
 
-        // Check notification client called
-        verify(notificationClient, atLeastOnce())
-                .sendNotificationToCustomer(eq(1L), any());
+        org.junit.jupiter.api.Assertions.assertTrue(orderSummaryViewRepository.existsById(created.getId()));
+        verify(domainEventPublisher).publish(eq("order.events"), any(DomainEventMessage.class));
     }
 
         @Test
@@ -113,6 +117,13 @@ class OrderServiceIntegrationTest {
                 mockMvc.perform(post("/order")
                                                 .contentType(MediaType.APPLICATION_JSON)
                                                 .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+        }
+
+        @Test
+        void eventHistoryForUnknownOrderReturnsNotFound() throws Exception {
+                mockMvc.perform(get("/order/99999/event"))
                                 .andExpect(status().isNotFound())
                                 .andExpect(jsonPath("$.code").value("NOT_FOUND"));
         }
@@ -134,8 +145,7 @@ class OrderServiceIntegrationTest {
                 .andExpect(jsonPath("$.total").value(75.0))
                 .andExpect(jsonPath("$.items", hasSize(1)));
 
-        // Verify basket cleared
-        verify(customerClient).clearCustomerBasket(1L);
+        // Basket clearing is performed asynchronously by Customer Service's order-event consumer.
     }
 
     @Test
@@ -226,5 +236,47 @@ class OrderServiceIntegrationTest {
                         .content(objectMapper.writeValueAsString(update)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("InTransit"));
+    }
+
+    @Test
+    void orderCommandsAppendImmutablePersistedEventsAndExposeCollectionRoute() throws Exception {
+        OrderCreateRequest request = new OrderCreateRequest(1L, sampleAddress,
+                List.of(new OrderItemDto(50L, "Coffee Beans", 25.0, 1, 25.0)));
+        String responseJson = mockMvc.perform(post("/order")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        OrderResponse created = objectMapper.readValue(responseJson, OrderResponse.class);
+
+        mockMvc.perform(post("/order/" + created.getId() + "/cancel"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("Cancelled"));
+        mockMvc.perform(put("/order/" + created.getId() + "/status")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new OrderStatusUpdateRequest(OrderStatus.InTransit))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/order/" + created.getId() + "/event"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(3)))
+                .andExpect(jsonPath("$[0].eventType").value("OrderPlacedEvent"))
+                .andExpect(jsonPath("$[0].aggregateVersion").value(1))
+                .andExpect(jsonPath("$[0].payload.status").value("Placed"))
+                .andExpect(jsonPath("$[0].payload.items[0].productId").value(50))
+                .andExpect(jsonPath("$[0].payload.items[0].subtotal").value(25.0))
+                .andExpect(jsonPath("$[1].eventType").value("OrderCancelledEvent"))
+                .andExpect(jsonPath("$[1].aggregateVersion").value(2))
+                .andExpect(jsonPath("$[1].payload.status").value("Cancelled"))
+                .andExpect(jsonPath("$[2].eventType").value("OrderStatusChangedEvent"))
+                .andExpect(jsonPath("$[2].aggregateVersion").value(3))
+                .andExpect(jsonPath("$[2].payload.status").value("InTransit"))
+                .andExpect(jsonPath("$[0].eventId").isNotEmpty())
+                .andExpect(jsonPath("$[0].occurredAt").isNotEmpty())
+                .andExpect(jsonPath("$[0].timestamp").doesNotExist());
+
+        mockMvc.perform(get("/order/event").param("date", LocalDate.now().toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(3))));
     }
 }

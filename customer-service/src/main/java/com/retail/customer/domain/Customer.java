@@ -26,6 +26,8 @@ public class Customer {
     @Embedded
     private Address address;
 
+    private Long aggregateVersion;
+
     public Customer() {
     }
 
@@ -83,5 +85,24 @@ public class Customer {
 
     public void setAddress(Address address) {
         this.address = address;
+    }
+
+    public long nextAggregateVersion() {
+        aggregateVersion = getAggregateVersion() + 1;
+        return aggregateVersion;
+    }
+
+    public long getAggregateVersion() {
+        return aggregateVersion != null ? aggregateVersion : 0;
+    }
+
+    public boolean hasAggregateVersion() {
+        return aggregateVersion != null;
+    }
+
+    public void initializeAggregateVersion(long aggregateVersion) {
+        if (this.aggregateVersion == null) {
+            this.aggregateVersion = aggregateVersion;
+        }
     }
 }

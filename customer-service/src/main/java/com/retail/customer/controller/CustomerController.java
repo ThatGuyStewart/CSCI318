@@ -151,13 +151,13 @@ public class CustomerController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/{id}/basket/items")
+    @PostMapping("/{id}/basket")
     public ResponseEntity<BasketResponse> addItemToBasket(@PathVariable("id") Long id, @Valid @RequestBody BasketAddRequest request) {
         BasketResponse response = basketService.addItemToBasket(id, request);
         return ResponseEntity.ok(response);
     }
 
-    @DeleteMapping("/{id}/basket/items")
+    @DeleteMapping("/{id}/basket")
     public ResponseEntity<BasketResponse> removeItemFromBasket(@PathVariable("id") Long id, @Valid @RequestBody BasketRemoveRequest request) {
         BasketResponse response = basketService.removeItemFromBasket(id, request);
         return ResponseEntity.ok(response);

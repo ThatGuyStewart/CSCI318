@@ -1,11 +1,55 @@
 ﻿# Online Retail Microservices Platform
 
-A multi-module Spring Boot microservices platform for an online retail system, built as part of **CSCI318 Assignment 2**.
+A multi-module Spring Boot microservices platform for an online retail system, built as part of **CSCI318 Assignment**.
+
+---
+
+## Quick Start
+
+### Dependencies
+
+Install these before starting the platform:
+
+1. **Java Development Kit (JDK) 21** or later. Verify with `java -version`.
+2. **Apache Maven 3.8+**. Verify with `mvn -version`.
+3. **Docker Desktop**, which runs the local Kafka broker used for event publishing and projections. Verify with `docker info` after Docker Desktop has started.
+
+### Start The Platform
+
+1. Open Docker Desktop and sign in. Wait until it reports that the engine is running.
+2. Open a terminal in the repository root.
+3. Run the platform launcher for your operating system:
+
+    **Windows Command Prompt**
+    ```bat
+    start-all.bat
+    ```
+
+    **Windows PowerShell**
+    ```powershell
+    .\start-all.ps1
+    ```
+
+    **macOS / Linux**
+    ```bash
+    ./start-all.sh
+    ```
+
+4. The launcher starts Kafka at `localhost:9092`, installs the shared Maven module, and opens the four services on ports `8081` through `8084`.
+5. Seed example data after the services finish starting:
+    ```bat
+    populate-data.bat
+    ```
+6. Stop the services with `stop-all.bat` (or the matching `.ps1` or `.sh` script). Stop Kafka when finished:
+    ```bash
+    docker compose -f kafka-compose.yml down
+    ```
 
 ---
 
 ## Table of Contents
 
+- [Quick Start](#quick-start)
 - [Overview](#overview)
 - [Architecture](#architecture)
 - [Technology Stack](#technology-stack)
@@ -175,6 +219,7 @@ Records and retrieves customer notifications.
 
 - **Java 21** or later
 - **Apache Maven 3.8+**
+- **Docker Desktop** (runs the local Kafka broker required for event publishing and projections)
 
 ### Running the Services
 
@@ -201,6 +246,12 @@ Once started, the services are accessible at:
 | Product Service | http://localhost:8082 |
 | Order Service | http://localhost:8083 |
 | Notification Service | http://localhost:8084 |
+
+The start scripts also start Kafka at `localhost:9092`. To stop it after stopping the services, run:
+
+```bash
+docker compose -f kafka-compose.yml down
+```
 
 ### Running a Single Service
 
@@ -266,8 +317,8 @@ Practical cURL and PowerShell examples for every endpoint are in [`api-examples.
 | `PUT` | `/customer/{id}/address` | Update customer address |
 | `DELETE` | `/customer/{id}` | Delete a customer |
 | `GET` | `/customer/{id}/basket` | View customer basket |
-| `POST` | `/customer/{id}/basket/items` | Add item to basket |
-| `DELETE` | `/customer/{id}/basket/items` | Remove item from basket |
+| `POST` | `/customer/{id}/basket` | Add item to basket |
+| `DELETE` | `/customer/{id}/basket` | Remove item from basket |
 | `GET` | `/customer/event` | List all customer domain events |
 | `GET` | `/customer/{id}/event` | Customer events by ID |
 | `GET` | `/customer/email/{email}/event` | Customer events by email |

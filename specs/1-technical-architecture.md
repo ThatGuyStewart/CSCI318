@@ -30,6 +30,7 @@ The project is structured as a multi-module repository:
 * `product-service`: Module for the Product Service
 * `order-service`: Module for the Order Service
 * `notification-service`: Module for the Notification Service
+* `retail-common`: Shared library for cross-service utilities and contracts; it is not a deployable microservice
 
 
 
@@ -43,7 +44,7 @@ The project is structured as a multi-module repository:
   * **Domain Layer**: `@Entity`
   * **Data Access Layer**: `@Repository`
 * **Database**: H2 in-memory database for development
-* **Inter-Service Compatibility**: DTO to be used for communication between services
+* **Inter-Service Compatibility**: Apache Kafka with DTOs to be used for communication between services
 * **AI-Powered**: LangChain4j to translate natural language user commands into appropriate api executions
 * **Unit \& Integration Testing**: `MockMvc`, `@SpringBootTest`, `JUnit 5`
 

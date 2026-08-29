@@ -85,6 +85,14 @@ public class OrderController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/event")
+    public ResponseEntity<List<DomainEventEnvelope>> getOrderEvents(
+            @RequestParam(value = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(value = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(value = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return ResponseEntity.ok(orderService.getOrderEvents(date, from, to));
+    }
+
     @GetMapping("/customer/{customerId}/event")
     public ResponseEntity<List<DomainEventEnvelope>> getOrdersByCustomerEvents(@PathVariable("customerId") Long customerId,
             @RequestParam(value = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,

@@ -26,6 +26,7 @@ It reflects the updated architecture: **CQRS**, **event sourcing**, **aggregates
 
 * `CustomerCreatedEvent`
 * `CustomerUpdatedEvent`
+* `CustomerDeletedEvent`
 * `BasketItemAddedEvent`
 * `BasketItemRemovedEvent`
 * `BasketRecalculatedEvent`
@@ -158,7 +159,7 @@ Represents a collection of products a customer is interested in purchasing. Auto
 
 * `BasketItemAddedEvent` – emitted when an item is added
 * `BasketItemRemovedEvent` – emitted when an item is removed
-* `BasketRecalculatedEvent` – emitted when basket total changes
+* `BasketRecalculatedEvent` – emitted when an external product update changes basket prices and requires total recalculation; customer item additions and removals are represented by their respective item events
 
 
 
@@ -318,6 +319,10 @@ The Notification Service manages notifications to customers.
 
 Represents a notification to a customer.
 
+**Domain Events:**
+
+* `NotificationCreatedEvent`
+
 |Field Name|Type|Description|Constraints / Notes|
 |-|-|-|-|
 |`id`|`Long`|Unique notification record identifier|Primary Identifier|
@@ -338,7 +343,7 @@ Represents a notification to a customer.
 
 Read models are projections updated by domain events.
 
-
+CustomerView, ProductView, OrderSummaryView, and NotificationView are separate persisted read models updated by projectors.
 
 ## 3.1 CustomerView
 
@@ -351,6 +356,8 @@ Read models are projections updated by domain events.
 |address|Address|
 |basketTotal|Double|
 
+
+Owner: Customer aggregate
 
 
 Updated by:
@@ -374,6 +381,8 @@ Updated by:
 |price|Double|
 
 
+Owner: Product aggregate
+
 
 Updated by:
 
@@ -395,6 +404,8 @@ Updated by:
 |status|Enum|
 |createdAt|LocalDateTime|
 
+
+Owner: Order aggregate
 
 
 Updated by:
@@ -435,16 +446,24 @@ Updated by:
 # 4\. Domain Events
 
 
+## Event Store
 
-Each event includes:
+Each service owns an append-only event store. Events are never updated or deleted.
+Aggregate state is rebuilt by replaying events, optionally from snapshots.
 
-* eventId
-* eventType
-* timestamp
-* aggregateId
-* payload
+## Event Envelope
 
-
+| Field | Type | Notes |
+|---|---|---|
+| eventId | UUID | Unique and stable event identifier |
+| aggregateType | String | Customer, Product, Order, Notification |
+| aggregateId | Long | Aggregate identifier |
+| aggregateVersion | Long | Monotonically increasing per aggregate |
+| eventType | String | e.g. `OrderPlacedEvent` |
+| occurredAt | Instant | UTC |
+| correlationId | UUID | Links a request/workflow |
+| causationId | UUID | Event or command that caused this event |
+| payload | Object | Versioned event-specific DTO |
 
 ### Example Event Definitions
 
@@ -454,9 +473,13 @@ ProductUpdatedEvent
 
 eventId: UUID,
 
-eventType: "ProductUpdated",
+eventType: "ProductUpdatedEvent",
 
-timestamp: Instant,
+aggregateType: "Product",
+
+aggregateVersion: 3,
+
+occurredAt: Instant,
 
 aggregateId: productId,
 
@@ -470,8 +493,6 @@ price: ...
 
 }
 
-
-
 \---
 
 
@@ -484,10 +505,13 @@ price: ...
 
 ## Customer Service
 
-Consumes:
-
+Consumes `product.events`:
 * `ProductUpdatedEvent` → updates basket items
+
+Consumes `order.events`:
 * `OrderPlacedEvent` → may update customer basket items
+
+- Consumer records processed `eventId` values to prevent duplicate application.
 
 
 
@@ -501,21 +525,23 @@ Consumes:
 
 ## Order Service
 
-Consumes:
+Consumes `customer.events`:
 
 * `CustomerUpdatedEvent` (optional)
+
+- Consumer records processed `eventId` values to prevent duplicate application.
 
 
 
 ## Notification Service
 
-Consumes:
+Consumes `order.events`:
 
 * `OrderPlacedEvent`
 * `OrderCancelledEvent`
 * `OrderStatusChangedEvent`
 
-
+- Consumer records processed `eventId` values to prevent duplicate application.
 
 \---
 

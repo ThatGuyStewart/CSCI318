@@ -6,6 +6,7 @@ import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
 import org.junit.jupiter.api.Test;
+import static org.mockito.Mockito.verify;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -19,10 +20,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.retail.common.DomainEventMessage;
+import com.retail.common.DomainEventPublisher;
 import com.retail.product.domain.ProductCategory;
 import com.retail.product.dto.ProductCreateRequest;
 import com.retail.product.dto.ProductResponse;
 import com.retail.product.dto.ProductUpdateRequest;
+import com.retail.product.repository.ProductViewRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -34,6 +38,12 @@ class ProductServiceIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+        @Autowired
+        private ProductViewRepository productViewRepository;
+
+        @org.springframework.test.context.bean.override.mockito.MockitoBean
+        private DomainEventPublisher domainEventPublisher;
 
     @Test
     void testCreateAndGetProduct_HappyPath() throws Exception {
@@ -63,6 +73,22 @@ class ProductServiceIntegrationTest {
         mockMvc.perform(get("/product"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(1))));
+
+        verify(domainEventPublisher).publish(
+                org.mockito.ArgumentMatchers.eq("product.events"),
+                org.mockito.ArgumentMatchers.any(DomainEventMessage.class));
+    }
+
+    @Test
+        void productCommandWritesReadProjection() throws Exception {
+        ProductResponse created = objectMapper.readValue(mockMvc.perform(post("/product")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new ProductCreateRequest("Projection Product",
+                                ProductCategory.Tools, 12.0, "Projection backed"))))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString(), ProductResponse.class);
+
+        org.junit.jupiter.api.Assertions.assertTrue(productViewRepository.existsById(created.getId()));
     }
 
     @Test
@@ -82,6 +108,13 @@ class ProductServiceIntegrationTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
+
+        @Test
+        void testGetProductEventsForUnknownProduct_Returns404() throws Exception {
+                mockMvc.perform(get("/product/99999/event"))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+        }
 
     @Test
     void testUpdateProduct_HappyAndNotFound() throws Exception {
@@ -154,7 +187,35 @@ class ProductServiceIntegrationTest {
     }
 
     @Test
-    void testProductEventEndpoints() throws Exception {
+    void categoryEventHistoryUsesEventTimeCategoryAfterProductChangesOrDeletion() throws Exception {
+        ProductResponse created = objectMapper.readValue(mockMvc.perform(post("/product")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new ProductCreateRequest("Historical Product",
+                                ProductCategory.Electronics, 100.0, "Category history"))))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString(), ProductResponse.class);
+
+        mockMvc.perform(put("/product/" + created.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new ProductUpdateRequest(null,
+                                ProductCategory.Furniture, null, null))))
+                .andExpect(status().isOk());
+        mockMvc.perform(delete("/product/" + created.getId()))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/product/category/Electronics/event"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].eventType").value("ProductCreatedEvent"));
+        mockMvc.perform(get("/product/category/Furniture/event"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].eventType").value("ProductUpdatedEvent"))
+                .andExpect(jsonPath("$[1].eventType").value("ProductDeletedEvent"));
+    }
+
+    @Test
+        void productCommandsAppendImmutablePersistedEvents() throws Exception {
         ProductCreateRequest request = new ProductCreateRequest("Yoga Mat", ProductCategory.Grocery, 25.0, "Exercise mat");
 
         String responseJson = mockMvc.perform(post("/product")
@@ -165,12 +226,28 @@ class ProductServiceIntegrationTest {
 
         ProductResponse created = objectMapper.readValue(responseJson, ProductResponse.class);
 
-        mockMvc.perform(get("/product/event"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(1))));
+        mockMvc.perform(put("/product/" + created.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new ProductUpdateRequest(
+                                "Premium Yoga Mat", ProductCategory.Grocery, 35.0, "Thicker exercise mat"))))
+                .andExpect(status().isOk());
+        mockMvc.perform(delete("/product/" + created.getId()))
+                .andExpect(status().isNoContent());
 
         mockMvc.perform(get("/product/" + created.getId() + "/event"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(1))));
+                .andExpect(jsonPath("$", hasSize(3)))
+                .andExpect(jsonPath("$[0].eventType").value("ProductCreatedEvent"))
+                .andExpect(jsonPath("$[0].aggregateVersion").value(1))
+                .andExpect(jsonPath("$[0].payload.name").value("Yoga Mat"))
+                .andExpect(jsonPath("$[1].eventType").value("ProductUpdatedEvent"))
+                .andExpect(jsonPath("$[1].aggregateVersion").value(2))
+                .andExpect(jsonPath("$[1].payload.name").value("Premium Yoga Mat"))
+                .andExpect(jsonPath("$[2].eventType").value("ProductDeletedEvent"))
+                .andExpect(jsonPath("$[2].aggregateVersion").value(3))
+                .andExpect(jsonPath("$[2].payload.name").value("Premium Yoga Mat"))
+                .andExpect(jsonPath("$[0].eventId").isNotEmpty())
+                .andExpect(jsonPath("$[0].occurredAt").isNotEmpty())
+                .andExpect(jsonPath("$[0].timestamp").doesNotExist());
     }
 }

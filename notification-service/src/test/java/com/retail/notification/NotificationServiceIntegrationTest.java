@@ -9,6 +9,7 @@ import static org.hamcrest.Matchers.hasSize;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,14 +21,22 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.retail.common.DomainEventMessage;
+import com.retail.common.DomainEventPublisher;
 import com.retail.notification.client.CustomerClient;
+import com.retail.notification.domain.Notification;
+import com.retail.notification.domain.NotificationDomainEvent;
 import com.retail.notification.dto.AddressDto;
 import com.retail.notification.dto.CustomerDto;
 import com.retail.notification.dto.NotificationAreaBroadcastRequest;
 import com.retail.notification.dto.NotificationBroadcastRequest;
 import com.retail.notification.dto.NotificationCreateRequest;
 import com.retail.notification.dto.NotificationResponse;
+import com.retail.notification.repository.NotificationDomainEventRepository;
+import com.retail.notification.repository.NotificationRepository;
+import com.retail.notification.repository.NotificationViewRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -40,8 +49,20 @@ class NotificationServiceIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+        @Autowired
+        private NotificationDomainEventRepository notificationDomainEventRepository;
+
+        @Autowired
+        private NotificationRepository notificationRepository;
+
+        @Autowired
+        private NotificationViewRepository notificationViewRepository;
+
         @MockitoBean
     private CustomerClient customerClient;
+
+        @MockitoBean
+        private DomainEventPublisher domainEventPublisher;
 
     private CustomerDto cust1;
     private CustomerDto cust2;
@@ -87,6 +108,12 @@ class NotificationServiceIntegrationTest {
         mockMvc.perform(get("/notification/customer/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(1))));
+
+        org.junit.jupiter.api.Assertions.assertTrue(notificationViewRepository.existsById(created.getId()));
+
+        verify(domainEventPublisher).publish(
+                org.mockito.ArgumentMatchers.eq("notification.events"),
+                org.mockito.ArgumentMatchers.any(DomainEventMessage.class));
     }
 
     @Test
@@ -131,6 +158,56 @@ class NotificationServiceIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].customerId").value(1));
+    }
+
+    @Test
+    void notificationCommandsAppendImmutablePersistedEvents() throws Exception {
+        long eventsBefore = notificationDomainEventRepository.count();
+
+        mockMvc.perform(post("/notification/customer/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new NotificationCreateRequest("Original message"))))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/notification/customer/email/alice@test.com")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new NotificationCreateRequest("Email message"))))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/notification/customer/phone/0400333444")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new NotificationCreateRequest("Phone message"))))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/notification/broadcast")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new NotificationBroadcastRequest("Broadcast message"))))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/notification/broadcast/area")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new NotificationAreaBroadcastRequest("Area message", null, "NSW", null))))
+                .andExpect(status().isCreated());
+
+        List<NotificationDomainEvent> events = notificationDomainEventRepository.findAll();
+        org.junit.jupiter.api.Assertions.assertEquals(eventsBefore + 6, events.size());
+        NotificationDomainEvent first = events.stream()
+                .filter(event -> event.getPayload().contains("Original message"))
+                .findFirst()
+                .orElseThrow();
+        org.junit.jupiter.api.Assertions.assertEquals("Notification", first.getAggregateType());
+        org.junit.jupiter.api.Assertions.assertEquals("NotificationCreatedEvent", first.getEventType());
+        org.junit.jupiter.api.Assertions.assertEquals(1, first.getAggregateVersion());
+        org.junit.jupiter.api.Assertions.assertNotNull(first.getEventId());
+        org.junit.jupiter.api.Assertions.assertNotNull(first.getOccurredAt());
+        org.junit.jupiter.api.Assertions.assertTrue(first.getPayload().contains("Original message"));
+        org.junit.jupiter.api.Assertions.assertNull(first.getCorrelationId());
+        org.junit.jupiter.api.Assertions.assertNull(first.getCausationId());
+
+        JsonNode payload = objectMapper.readTree(first.getPayload());
+        Notification notification = notificationRepository.findById(payload.get("notificationId").asLong()).orElseThrow();
+        notification.setMessage("Updated message");
+        notificationRepository.save(notification);
+        org.junit.jupiter.api.Assertions.assertEquals("Original message", objectMapper.readTree(
+                notificationDomainEventRepository.findById(first.getEventId()).orElseThrow().getPayload())
+                .get("message").asText());
     }
 
     @Test

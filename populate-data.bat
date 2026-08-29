@@ -142,9 +142,9 @@ echo.
 echo [3/4] Adding Basket Items & Placing Orders...
 
 :: Add products to Customer 1's basket
-curl -s -X POST http://localhost:8081/customer/1/basket/items -H "Content-Type: application/json" -d "{\"productId\":1,\"quantity\":2}"
+curl -s -X POST http://localhost:8081/customer/1/basket -H "Content-Type: application/json" -d "{\"productId\":1,\"quantity\":2}"
 echo.
-curl -s -X POST http://localhost:8081/customer/1/basket/items -H "Content-Type: application/json" -d "{\"productId\":4,\"quantity\":1}"
+curl -s -X POST http://localhost:8081/customer/1/basket -H "Content-Type: application/json" -d "{\"productId\":4,\"quantity\":1}"
 echo.
 
 :: Order 1: From Customer 1's basket

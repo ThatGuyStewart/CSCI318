@@ -1,0 +1,3 @@
+com.retail.common.DomainEventPublisherAutoConfiguration
+com.retail.common.TransactionalOutboxAutoConfiguration
+com.retail.common.InboundUriNormalizingAutoConfiguration

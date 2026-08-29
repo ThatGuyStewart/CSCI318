@@ -48,6 +48,7 @@
 
 * **As a** Customer, **I want to** view the details of the basket associated with my customer record, including the products in my basket and the total price of those products
 * **As a** Customer, **I want to** add products to the basket associated with my customer record by supplying the product's ID and the quantity to add
+* **As a** Customer, **I want to** remove a quantity of a product from the basket associated with my customer record
 
 
 
@@ -137,8 +138,8 @@
 * **As an** administrator, **I want to** create a notification by supplying a customer ID and a message
 * **As an** administrator, **I want to** create a notification by supplying a customer email and a message
 * **As an** administrator, **I want to** create a notification by supplying a customer phone and a message
-* **As an** administrator, **I want to** create a notification for all customers by supplying "broadcast" (as the customer ID), and the message to broadcast
-* **As an** administrator, **I want to** create a notification for all customers in a particular area by supplying "broadcast" (as the customer ID), a postcode, state, or Country to broadcast to, and the message to broadcast
+* **As an** administrator, **I want to** create a notification for all customers by supplying a message to broadcast
+* **As an** administrator, **I want to** create a notification for all customers in a particular area by supplying a postcode, state, or country and a message to broadcast
 * **As an** administrator, **I want to** view all notifications for a particular customer by supplying a customer ID
 * **As an** administrator, **I want to** view all notifications for a particular customer by supplying a customer email
 * **As an** administrator, **I want to** view all notifications for a particular customer by supplying a customer phone
@@ -148,7 +149,15 @@
 
 
 
+## Event-Sourcing and CQRS Acceptance Criteria
 
+For every state-changing user story:
+
+- The service appends an immutable domain event before acknowledging success.
+- Events have a unique `eventId`, aggregate type and ID, aggregate version, event type, `occurredAt`, correlation ID, causation ID, and payload.
+- Query endpoints read from service-owned projections, not by reconstructing response data from command-side entities.
+- Projections are eventually consistent; clients may receive `202 Accepted` where a projection is not yet available.
+- Event consumers are idempotent and tolerate duplicate delivery.
 
 
 

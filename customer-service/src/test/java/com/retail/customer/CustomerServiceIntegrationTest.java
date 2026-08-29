@@ -7,6 +7,8 @@ import static org.hamcrest.Matchers.hasSize;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.verify;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -21,6 +23,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.retail.common.DomainEventMessage;
+import com.retail.common.DomainEventPublisher;
 import com.retail.customer.client.ProductClient;
 import com.retail.customer.domain.ContactMethod;
 import com.retail.customer.dto.AddressDto;
@@ -31,6 +35,7 @@ import com.retail.customer.dto.CustomerCreateRequest;
 import com.retail.customer.dto.CustomerResponse;
 import com.retail.customer.dto.CustomerUpdateRequest;
 import com.retail.customer.dto.ProductDto;
+import com.retail.customer.repository.CustomerViewRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -43,8 +48,14 @@ class CustomerServiceIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+        @Autowired
+        private CustomerViewRepository customerViewRepository;
+
         @MockitoBean
     private ProductClient productClient;
+
+        @MockitoBean
+        private DomainEventPublisher domainEventPublisher;
 
     private AddressDto sampleAddress;
 
@@ -83,9 +94,14 @@ class CustomerServiceIntegrationTest {
                 .andExpect(jsonPath("$.name").value("John Doe"));
 
         // List all
-        mockMvc.perform(get("/customer"))
+        String customersJson = mockMvc.perform(get("/customer"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(1))));
+                .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(1))))
+                .andReturn().getResponse().getContentAsString();
+
+        org.junit.jupiter.api.Assertions.assertTrue(customersJson.contains("\n"));
+
+        org.junit.jupiter.api.Assertions.assertTrue(customerViewRepository.existsById(created.getId()));
     }
 
     @Test
@@ -170,6 +186,57 @@ class CustomerServiceIntegrationTest {
     }
 
     @Test
+    void customerCommandsAppendImmutablePersistedEvents() throws Exception {
+        CustomerCreateRequest createRequest = new CustomerCreateRequest(
+                "Event Customer", "event.customer@example.com", "0400000000", ContactMethod.Email, sampleAddress);
+        String responseJson = mockMvc.perform(post("/customer")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        CustomerResponse created = objectMapper.readValue(responseJson, CustomerResponse.class);
+
+        mockMvc.perform(put("/customer/" + created.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new CustomerUpdateRequest(
+                                "Updated Event Customer", null, null, null, null))))
+                .andExpect(status().isOk());
+        mockMvc.perform(delete("/customer/" + created.getId()))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/customer/" + created.getId() + "/event"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(3)))
+                .andExpect(jsonPath("$[0].eventType").value("CustomerCreatedEvent"))
+                .andExpect(jsonPath("$[0].aggregateVersion").value(1))
+                .andExpect(jsonPath("$[0].payload.name").value("Event Customer"))
+                .andExpect(jsonPath("$[1].eventType").value("CustomerUpdatedEvent"))
+                .andExpect(jsonPath("$[1].aggregateVersion").value(2))
+                .andExpect(jsonPath("$[1].payload.name").value("Updated Event Customer"))
+                .andExpect(jsonPath("$[2].eventType").value("CustomerDeletedEvent"))
+                .andExpect(jsonPath("$[2].aggregateVersion").value(3))
+                .andExpect(jsonPath("$[2].payload.name").value("Updated Event Customer"))
+                .andExpect(jsonPath("$[0].eventId").isNotEmpty())
+                .andExpect(jsonPath("$[0].occurredAt").isNotEmpty())
+                .andExpect(jsonPath("$[0].timestamp").doesNotExist());
+
+        mockMvc.perform(get("/customer/email/event.customer@example.com/event"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(3)));
+
+        verify(domainEventPublisher, atLeastOnce()).publish(
+                org.mockito.ArgumentMatchers.eq("customer.events"),
+                org.mockito.ArgumentMatchers.any(DomainEventMessage.class));
+    }
+
+        @Test
+        void eventHistoryForUnknownCustomerReturnsNotFound() throws Exception {
+                mockMvc.perform(get("/customer/99999/event"))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+        }
+
+    @Test
     void testBasketOperations_HappyAndEdgePaths() throws Exception {
         CustomerCreateRequest createRequest = new CustomerCreateRequest(
                 "Charlie Green", "charlie.green@example.com", "0455667788", ContactMethod.Email, sampleAddress
@@ -190,9 +257,13 @@ class CustomerServiceIntegrationTest {
                 .andExpect(jsonPath("$.items", hasSize(0)))
                 .andExpect(jsonPath("$.total").value(0.0));
 
+        mockMvc.perform(get("/customer/" + created.getId() + "//basket/"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.customerId").value(created.getId()));
+
         // Add 2 Laptops
         BasketAddRequest addRequest = new BasketAddRequest(101L, 2);
-        mockMvc.perform(post("/customer/" + created.getId() + "/basket/items")
+        mockMvc.perform(post("/customer/" + created.getId() + "/basket")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(addRequest)))
                 .andExpect(status().isOk())
@@ -204,7 +275,7 @@ class CustomerServiceIntegrationTest {
 
         // Remove 1 Laptop
         BasketRemoveRequest removeRequest = new BasketRemoveRequest(101L, 1);
-        mockMvc.perform(delete("/customer/" + created.getId() + "/basket/items")
+        mockMvc.perform(delete("/customer/" + created.getId() + "/basket")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(removeRequest)))
                 .andExpect(status().isOk())
@@ -212,12 +283,27 @@ class CustomerServiceIntegrationTest {
                 .andExpect(jsonPath("$.total").value(1200.0));
 
         // Remove remaining quantity -> item should be removed completely
-        mockMvc.perform(delete("/customer/" + created.getId() + "/basket/items")
+        mockMvc.perform(delete("/customer/" + created.getId() + "/basket")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(removeRequest)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items", hasSize(0)))
                 .andExpect(jsonPath("$.total").value(0.0));
+
+        mockMvc.perform(get("/customer/" + created.getId() + "/event"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(4)))
+                .andExpect(jsonPath("$[1].eventType").value("BasketItemAddedEvent"))
+                .andExpect(jsonPath("$[1].aggregateVersion").value(2))
+                .andExpect(jsonPath("$[1].payload.items[0].quantity").value(2))
+                .andExpect(jsonPath("$[2].eventType").value("BasketItemRemovedEvent"))
+                .andExpect(jsonPath("$[3].eventType").value("BasketItemRemovedEvent"))
+                .andExpect(jsonPath("$[3].payload.items", hasSize(0)))
+                .andExpect(jsonPath("$[3].payload.total").value(0.0));
+
+        verify(domainEventPublisher, atLeastOnce()).publish(
+                org.mockito.ArgumentMatchers.eq("customer.events"),
+                org.mockito.ArgumentMatchers.any(DomainEventMessage.class));
     }
 
     @Test

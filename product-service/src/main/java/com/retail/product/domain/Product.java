@@ -22,6 +22,8 @@ public class Product {
 
     private String description;
 
+    private Long aggregateVersion;
+
     public Product() {
     }
 
@@ -70,5 +72,24 @@ public class Product {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public long nextAggregateVersion() {
+        aggregateVersion = getAggregateVersion() + 1;
+        return aggregateVersion;
+    }
+
+    public long getAggregateVersion() {
+        return aggregateVersion != null ? aggregateVersion : 0;
+    }
+
+    public boolean hasAggregateVersion() {
+        return aggregateVersion != null;
+    }
+
+    public void initializeAggregateVersion(long aggregateVersion) {
+        if (this.aggregateVersion == null) {
+            this.aggregateVersion = aggregateVersion;
+        }
     }
 }
