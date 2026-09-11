@@ -13,8 +13,8 @@ Write-Host "===================================================" -ForegroundColo
 $endpoints = @{
     "Customer Service"     = "http://localhost:8081/customer"
     "Product Service"      = "http://localhost:8082/product"
-    "Order Service"        = "http://localhost:8083/order"
-    "Notification Service" = "http://localhost:8084/notification/broadcast"
+    "Order Service"        = "http://localhost:8083/order/event"
+    "Notification Service" = "http://localhost:8084/notification"
 }
 
 Write-Host "`nChecking microservice availability..." -ForegroundColor Yellow
@@ -118,7 +118,7 @@ $customers = @(
 foreach ($c in $customers) {
     $json = $c | ConvertTo-Json -Depth 5
     $res = Invoke-RestMethod -Uri "http://localhost:8081/customer" -Method POST -ContentType "application/json" -Body $json
-    Write-Host "  Created Customer #$($res.id): $($res.name) ($($res.email))" -ForegroundColor Green
+    Write-Host "  Created Customer #$($res.customerId): $($res.name) ($($res.email))" -ForegroundColor Green
 }
 
 # -----------------------------------------------------------------------------
@@ -196,7 +196,7 @@ $products = @(
 foreach ($p in $products) {
     $json = $p | ConvertTo-Json
     $res = Invoke-RestMethod -Uri "http://localhost:8082/product" -Method POST -ContentType "application/json" -Body $json
-    Write-Host "  Created Product #$($res.id): [$($res.category)] $($res.name) - `$$($res.price)" -ForegroundColor Green
+    Write-Host "  Created Product #$($res.productId): [$($res.category)] $($res.name) - `$$($res.price)" -ForegroundColor Green
 }
 
 # -----------------------------------------------------------------------------
@@ -214,7 +214,7 @@ Write-Host "  Added items to Customer 1's basket." -ForegroundColor Green
 # Order 1: Created from Customer 1's basket (omitting items in request)
 $order1Payload = @{ customerId = 1 } | ConvertTo-Json
 $order1 = Invoke-RestMethod -Uri "http://localhost:8083/order" -Method POST -ContentType "application/json" -Body $order1Payload
-Write-Host "  Created Order #$($order1.id) from Customer 1's basket (Total: `$$($order1.total), Status: $($order1.status))" -ForegroundColor Green
+Write-Host "  Created Order #$($order1.orderId) from Customer 1's basket (Total: `$$($order1.total), Status: $($order1.status))" -ForegroundColor Green
 
 # Order 2: Created with explicit items for Customer 2
 $order2Payload = @{
@@ -225,12 +225,12 @@ $order2Payload = @{
     )
 } | ConvertTo-Json -Depth 5
 $order2 = Invoke-RestMethod -Uri "http://localhost:8083/order" -Method POST -ContentType "application/json" -Body $order2Payload
-Write-Host "  Created Order #$($order2.id) for Customer 2 (Total: `$$($order2.total), Status: $($order2.status))" -ForegroundColor Green
+Write-Host "  Created Order #$($order2.orderId) for Customer 2 (Total: `$$($order2.total), Status: $($order2.status))" -ForegroundColor Green
 
 # Update Order 2 status to InTransit
 $statusUpdate = @{ status = "InTransit" } | ConvertTo-Json
-$order2Updated = Invoke-RestMethod -Uri "http://localhost:8083/order/$($order2.id)/status" -Method PUT -ContentType "application/json" -Body $statusUpdate
-Write-Host "  Updated Order #$($order2.id) status to $($order2Updated.status)" -ForegroundColor Green
+$order2Updated = Invoke-RestMethod -Uri "http://localhost:8083/order/$($order2.orderId)/status" -Method PUT -ContentType "application/json" -Body $statusUpdate
+Write-Host "  Updated Order #$($order2.orderId) status to $($order2Updated.status)" -ForegroundColor Green
 
 # Order 3: Created for Customer 3 and updated to Delivered
 $order3Payload = @{
@@ -242,8 +242,8 @@ $order3Payload = @{
 } | ConvertTo-Json -Depth 5
 $order3 = Invoke-RestMethod -Uri "http://localhost:8083/order" -Method POST -ContentType "application/json" -Body $order3Payload
 $statusDelivered = @{ status = "Delivered" } | ConvertTo-Json
-$null = Invoke-RestMethod -Uri "http://localhost:8083/order/$($order3.id)/status" -Method PUT -ContentType "application/json" -Body $statusDelivered
-Write-Host "  Created Order #$($order3.id) for Customer 3 (Status: Delivered)" -ForegroundColor Green
+$null = Invoke-RestMethod -Uri "http://localhost:8083/order/$($order3.orderId)/status" -Method PUT -ContentType "application/json" -Body $statusDelivered
+Write-Host "  Created Order #$($order3.orderId) for Customer 3 (Status: Delivered)" -ForegroundColor Green
 
 # Order 4: Created for Customer 4 and then Cancelled
 $order4Payload = @{
@@ -253,8 +253,8 @@ $order4Payload = @{
     )
 } | ConvertTo-Json -Depth 5
 $order4 = Invoke-RestMethod -Uri "http://localhost:8083/order" -Method POST -ContentType "application/json" -Body $order4Payload
-$order4Cancelled = Invoke-RestMethod -Uri "http://localhost:8083/order/$($order4.id)/cancel" -Method POST
-Write-Host "  Created and Cancelled Order #$($order4.id) for Customer 4 (Status: $($order4Cancelled.status))" -ForegroundColor Green
+$order4Cancelled = Invoke-RestMethod -Uri "http://localhost:8083/order/$($order4.orderId)/cancel" -Method POST
+Write-Host "  Created and Cancelled Order #$($order4.orderId) for Customer 4 (Status: $($order4Cancelled.status))" -ForegroundColor Green
 
 # -----------------------------------------------------------------------------
 # 5. Populate Notifications (Notification Service - Port 8084)
@@ -264,17 +264,17 @@ Write-Host "`n[4/4] Sending Sample Notifications..." -ForegroundColor Yellow
 # Direct by Customer ID
 $notifCust1 = @{ message = "Exclusive VIP Reward: Enjoy 15% off your next purchase with code VIP15." } | ConvertTo-Json
 $resN1 = Invoke-RestMethod -Uri "http://localhost:8084/notification/customer/1" -Method POST -ContentType "application/json" -Body $notifCust1
-Write-Host "  Sent Notification #$($resN1.id) to Customer 1 via $($resN1.type)" -ForegroundColor Green
+Write-Host "  Sent Notification #$($resN1.notificationId) to Customer 1 via $($resN1.type)" -ForegroundColor Green
 
 # Direct by Customer Email
 $notifEmail = @{ message = "Monthly Newsletter: Tech gadgets trends for Spring 2026." } | ConvertTo-Json
 $resN2 = Invoke-RestMethod -Uri "http://localhost:8084/notification/customer/email/bob.johnson@example.com" -Method POST -ContentType "application/json" -Body $notifEmail
-Write-Host "  Sent Notification #$($resN2.id) to Bob Johnson via $($resN2.type)" -ForegroundColor Green
+Write-Host "  Sent Notification #$($resN2.notificationId) to Bob Johnson via $($resN2.type)" -ForegroundColor Green
 
 # Direct by Customer Phone
 $notifPhone = @{ message = "Your security verification code is 829410." } | ConvertTo-Json
 $resN3 = Invoke-RestMethod -Uri "http://localhost:8084/notification/customer/phone/0433333333" -Method POST -ContentType "application/json" -Body $notifPhone
-Write-Host "  Sent Notification #$($resN3.id) to Charlie Brown via $($resN3.type)" -ForegroundColor Green
+Write-Host "  Sent Notification #$($resN3.notificationId) to Charlie Brown via $($resN3.type)" -ForegroundColor Green
 
 # Broadcast to All Customers
 $broadcast = @{ message = "Store Announcement: Weekend Flash Sale starts this Saturday at 9AM!" } | ConvertTo-Json

@@ -12,7 +12,8 @@ import jakarta.persistence.Table;
 public class ProductView {
 
     @Id
-    private Long id;
+    @Column(name = "product_id")
+    private Long productId;
 
     @Column(nullable = false)
     private String name;
@@ -29,15 +30,15 @@ public class ProductView {
     public ProductView() {
     }
 
-    public ProductView(Long id, String name, ProductCategory category, Double price, String description) {
-        this.id = id;
+    public ProductView(Long productId, String name, ProductCategory category, Double price, String description) {
+        this.productId = productId;
         this.name = name;
         this.category = category;
         this.price = price;
         this.description = description;
     }
 
-    public Long getId() { return id; }
+    public Long getProductId() { return productId; }
     public String getName() { return name; }
     public ProductCategory getCategory() { return category; }
     public Double getPrice() { return price; }

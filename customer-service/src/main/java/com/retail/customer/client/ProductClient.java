@@ -5,10 +5,13 @@ import java.util.Optional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import com.retail.common.ServicePropertyKeys;
 import com.retail.common.ServiceUriBuilder;
 import com.retail.customer.dto.ProductDto;
+import com.retail.customer.exception.ServiceUnavailableException;
 
 @Component
 public class ProductClient {
@@ -31,8 +34,13 @@ public class ProductClient {
                     .retrieve()
                     .body(ProductDto.class);
             return Optional.ofNullable(product);
-        } catch (Exception e) {
-            return Optional.empty();
+        } catch (RestClientResponseException exception) {
+            if (exception.getStatusCode().value() == 404) {
+                return Optional.empty();
+            }
+            throw new ServiceUnavailableException("Product service is unavailable", exception);
+        } catch (RestClientException exception) {
+            throw new ServiceUnavailableException("Product service is unavailable", exception);
         }
     }
 

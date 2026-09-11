@@ -4,29 +4,29 @@ import com.retail.notification.domain.DeliveryType;
 import java.time.LocalDateTime;
 
 public class NotificationResponse {
-    private Long id;
+    private Long notificationId;
     private Long customerId;
     private DeliveryType type;
     private String message;
-    private LocalDateTime sent;
+    private LocalDateTime sentAt;
 
     public NotificationResponse() {
     }
 
-    public NotificationResponse(Long id, Long customerId, DeliveryType type, String message, LocalDateTime sent) {
-        this.id = id;
+    public NotificationResponse(Long notificationId, Long customerId, DeliveryType type, String message, LocalDateTime sentAt) {
+        this.notificationId = notificationId;
         this.customerId = customerId;
         this.type = type;
         this.message = message;
-        this.sent = sent;
+        this.sentAt = sentAt;
     }
 
-    public Long getId() {
-        return id;
+    public Long getNotificationId() {
+        return notificationId;
     }
 
-    public void setId(Long id) {
-        this.id = id;
+    public void setNotificationId(Long notificationId) {
+        this.notificationId = notificationId;
     }
 
     public Long getCustomerId() {
@@ -53,11 +53,11 @@ public class NotificationResponse {
         this.message = message;
     }
 
-    public LocalDateTime getSent() {
-        return sent;
+    public LocalDateTime getSentAt() {
+        return sentAt;
     }
 
-    public void setSent(LocalDateTime sent) {
-        this.sent = sent;
+    public void setSentAt(LocalDateTime sentAt) {
+        this.sentAt = sentAt;
     }
 }

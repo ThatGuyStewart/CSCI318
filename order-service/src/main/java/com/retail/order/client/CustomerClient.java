@@ -8,11 +8,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import com.retail.common.ServicePropertyKeys;
 import com.retail.common.ServiceUriBuilder;
 import com.retail.order.dto.BasketDto;
 import com.retail.order.dto.CustomerDto;
+import com.retail.order.exception.ServiceUnavailableException;
 
 @Component
 public class CustomerClient {
@@ -37,8 +39,10 @@ public class CustomerClient {
                     .retrieve()
                     .body(CustomerDto.class);
             return Optional.ofNullable(customer);
-        } catch (Exception e) {
-            return Optional.empty();
+        } catch (RestClientResponseException exception) {
+            return notFoundOrUnavailable(exception);
+        } catch (RestClientException exception) {
+            throw new ServiceUnavailableException("Customer service is unavailable", exception);
         }
     }
 
@@ -49,8 +53,10 @@ public class CustomerClient {
                     .retrieve()
                     .body(CustomerDto.class);
             return Optional.ofNullable(customer);
-        } catch (Exception e) {
-            return Optional.empty();
+        } catch (RestClientResponseException exception) {
+            return notFoundOrUnavailable(exception);
+        } catch (RestClientException exception) {
+            throw new ServiceUnavailableException("Customer service is unavailable", exception);
         }
     }
 
@@ -61,8 +67,10 @@ public class CustomerClient {
                     .retrieve()
                     .body(CustomerDto.class);
             return Optional.ofNullable(customer);
-        } catch (Exception e) {
-            return Optional.empty();
+        } catch (RestClientResponseException exception) {
+            return notFoundOrUnavailable(exception);
+        } catch (RestClientException exception) {
+            throw new ServiceUnavailableException("Customer service is unavailable", exception);
         }
     }
 
@@ -73,9 +81,18 @@ public class CustomerClient {
                     .retrieve()
                     .body(BasketDto.class);
             return Optional.ofNullable(basket);
-        } catch (Exception e) {
+        } catch (RestClientResponseException exception) {
+            return notFoundOrUnavailable(exception);
+        } catch (RestClientException exception) {
+            throw new ServiceUnavailableException("Customer service is unavailable", exception);
+        }
+    }
+
+    private <T> Optional<T> notFoundOrUnavailable(RestClientResponseException exception) {
+        if (exception.getStatusCode().value() == 404) {
             return Optional.empty();
         }
+        throw new ServiceUnavailableException("Customer service is unavailable", exception);
     }
 
     public void clearCustomerBasket(Long customerId) {

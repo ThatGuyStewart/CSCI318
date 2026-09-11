@@ -44,8 +44,11 @@ public class NotificationController {
     }
 
     @GetMapping("/customer/{customerId}")
-    public ResponseEntity<List<NotificationResponse>> getByCustomerId(@PathVariable("customerId") Long customerId) {
-        List<NotificationResponse> responses = notificationService.getNotificationsByCustomerId(customerId);
+    public ResponseEntity<List<NotificationResponse>> getByCustomerId(@PathVariable("customerId") Long customerId,
+            @RequestParam(value = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(value = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(value = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        List<NotificationResponse> responses = notificationService.getNotificationsByCustomerId(customerId, date, from, to);
         return ResponseEntity.ok(responses);
     }
 
@@ -57,8 +60,11 @@ public class NotificationController {
     }
 
     @GetMapping("/customer/email/{email}")
-    public ResponseEntity<List<NotificationResponse>> getByEmail(@PathVariable("email") String email) {
-        List<NotificationResponse> responses = notificationService.getNotificationsByCustomerEmail(email);
+    public ResponseEntity<List<NotificationResponse>> getByEmail(@PathVariable("email") String email,
+            @RequestParam(value = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(value = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(value = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        List<NotificationResponse> responses = notificationService.getNotificationsByCustomerEmail(email, date, from, to);
         return ResponseEntity.ok(responses);
     }
 
@@ -70,8 +76,11 @@ public class NotificationController {
     }
 
     @GetMapping("/customer/phone/{phone}")
-    public ResponseEntity<List<NotificationResponse>> getByPhone(@PathVariable("phone") String phone) {
-        List<NotificationResponse> responses = notificationService.getNotificationsByCustomerPhone(phone);
+    public ResponseEntity<List<NotificationResponse>> getByPhone(@PathVariable("phone") String phone,
+            @RequestParam(value = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(value = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(value = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        List<NotificationResponse> responses = notificationService.getNotificationsByCustomerPhone(phone, date, from, to);
         return ResponseEntity.ok(responses);
     }
 
@@ -85,6 +94,14 @@ public class NotificationController {
     public ResponseEntity<List<NotificationResponse>> broadcastArea(@Valid @RequestBody NotificationAreaBroadcastRequest request) {
         List<NotificationResponse> responses = notificationService.broadcastAreaNotification(request);
         return new ResponseEntity<>(responses, HttpStatus.CREATED);
+    }
+
+    @GetMapping
+    public ResponseEntity<List<NotificationResponse>> getNotifications(
+            @RequestParam(value = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(value = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(value = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return ResponseEntity.ok(notificationService.getNotifications(date, from, to));
     }
 
     @GetMapping("/date/{date}")

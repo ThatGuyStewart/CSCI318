@@ -36,8 +36,8 @@ import com.retail.order.dto.BasketItemDto;
 import com.retail.order.dto.CustomerDto;
 import com.retail.order.dto.DomainEventEnvelope;
 import com.retail.order.dto.OrderCreateRequest;
-import com.retail.order.dto.OrderItemEventPayload;
 import com.retail.order.dto.OrderItemDto;
+import com.retail.order.dto.OrderItemEventPayload;
 import com.retail.order.dto.OrderResponse;
 import com.retail.order.dto.OrderStatusUpdateRequest;
 import com.retail.order.dto.ProductDto;
@@ -67,10 +67,10 @@ public class OrderService {
     private final String eventTopic;
 
     public OrderService(OrderRepository orderRepository, OrderSummaryViewRepository orderSummaryViewRepository,
-                        OrderDomainEventRepository orderDomainEventRepository,
-                        CustomerClient customerClient,
-                        ProductClient productClient, ObjectMapper objectMapper,
-                        DomainEventPublisher domainEventPublisher, @Value("${retail.events.topic}") String eventTopic) {
+            OrderDomainEventRepository orderDomainEventRepository,
+            CustomerClient customerClient,
+            ProductClient productClient, ObjectMapper objectMapper,
+            DomainEventPublisher domainEventPublisher, @Value("${retail.events.topic}") String eventTopic) {
         this.orderRepository = orderRepository;
         this.orderSummaryViewRepository = orderSummaryViewRepository;
         this.orderDomainEventRepository = orderDomainEventRepository;
@@ -85,14 +85,20 @@ public class OrderService {
         Long customerId = requireCustomerId(request);
         CustomerDto customer = findCustomer(customerId);
         Address address = resolveAddress(request, customer);
+        boolean usesCustomerBasket = request.getItems() == null;
         List<OrderItem> orderItems = resolveOrderItems(request, customerId);
         double total = calculateTotal(orderItems);
 
         Order order = new Order(customerId, address, orderItems, total, OrderStatus.Placed);
-    order.nextAggregateVersion();
+        long orderPlacedVersion = order.nextAggregateVersion();
+        long basketUsedVersion = usesCustomerBasket ? order.nextAggregateVersion() : orderPlacedVersion;
         Order saved = orderRepository.save(Objects.requireNonNull(order, ORDER_REQUIRED));
 
-        appendOrderEvent("OrderPlacedEvent", saved);
+        appendOrderEvent("OrderPlacedEvent", saved, orderPlacedVersion);
+        if (usesCustomerBasket) {
+            appendOrderEvent("BasketUsedForOrderEvent", saved, basketUsedVersion);
+        }
+
         upsertOrderSummary(saved, LocalDateTime.now(ZoneOffset.UTC));
         return toOrderResponse(saved);
     }
@@ -117,11 +123,14 @@ public class OrderService {
         if (customer.getAddress() != null) {
             return toAddress(customer.getAddress());
         }
-        return new Address(null, 1, "Default St", "Default", "City", 1000, "State", "Country");
+        throw new BadRequestException("An order delivery address is required when the customer has no address");
     }
 
     private List<OrderItem> resolveOrderItems(OrderCreateRequest request, Long customerId) {
-        if (request.getItems() != null && !request.getItems().isEmpty()) {
+        if (request.getItems() != null) {
+            if (request.getItems().isEmpty()) {
+                throw new BadRequestException("Order items must not be empty");
+            }
             return resolveOrderItemsFromRequest(request.getItems());
         }
 
@@ -132,7 +141,8 @@ public class OrderService {
 
         List<OrderItem> orderItems = new ArrayList<>();
         for (BasketItemDto item : basketOpt.get().getItems()) {
-            orderItems.add(new OrderItem(item.getProductId(), item.getName(), item.getPrice(), item.getQuantity(), item.getSubtotal()));
+            orderItems.add(new OrderItem(item.getProductId(), item.getName(), item.getPrice(), item.getQuantity(),
+                    item.getSubtotal()));
         }
         return orderItems;
     }
@@ -160,12 +170,16 @@ public class OrderService {
     }
 
     private int resolveQuantity(Integer requestedQty) {
-        return requestedQty != null && requestedQty > 0 ? requestedQty : 1;
+        if (requestedQty == null || requestedQty <= 0) {
+            throw new BadRequestException("Quantity must be greater than zero");
+        }
+        return requestedQty;
     }
 
     private ProductSnapshot resolveProductSnapshot(OrderItemDto itemDto) {
         ProductDto product = productClient.getProductById(itemDto.getProductId())
-                .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + itemDto.getProductId()));
+                .orElseThrow(
+                        () -> new ResourceNotFoundException("Product not found with id: " + itemDto.getProductId()));
         Double productPrice = product.getPrice();
         return new ProductSnapshot(product.getName(), productPrice != null ? productPrice : 0.0d);
     }
@@ -196,7 +210,10 @@ public class OrderService {
             upsertOrderSummary(saved, existingCreatedAt(orderId));
             return toOrderResponse(saved);
         } else {
-            return toOrderResponse(order);
+            order.nextAggregateVersion();
+            Order saved = orderRepository.save(order);
+            appendOrderEvent("OrderCancelFailedEvent", saved);
+            return toOrderResponse(saved);
         }
     }
 
@@ -221,7 +238,7 @@ public class OrderService {
         if (customerOpt.isEmpty()) {
             return List.of();
         }
-        Long customerId = Objects.requireNonNull(customerOpt.get().getId(), "Customer ID is required");
+        Long customerId = Objects.requireNonNull(customerOpt.get().getCustomerId(), "Customer ID is required");
         return orderSummaryViewRepository.findByCustomerIdWithItems(customerId).stream()
                 .map(this::toOrderResponse)
                 .toList();
@@ -233,7 +250,7 @@ public class OrderService {
         if (customerOpt.isEmpty()) {
             return List.of();
         }
-        Long customerId = Objects.requireNonNull(customerOpt.get().getId(), "Customer ID is required");
+        Long customerId = Objects.requireNonNull(customerOpt.get().getCustomerId(), "Customer ID is required");
         return orderSummaryViewRepository.findByCustomerIdWithItems(customerId).stream()
                 .map(this::toOrderResponse)
                 .toList();
@@ -247,10 +264,11 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
-    public List<DomainEventEnvelope> getOrderEventsByCustomerId(Long customerId, LocalDate date, LocalDate from, LocalDate to) {
+    public List<DomainEventEnvelope> getOrderEventsByCustomerId(Long customerId, LocalDate date, LocalDate from,
+            LocalDate to) {
         Set<Long> orderIds = orderSummaryViewRepository.findByCustomerId(customerId).stream()
-                .map(order -> Objects.requireNonNull(order, ORDER_REQUIRED).getId())
-            .collect(java.util.stream.Collectors.toSet());
+                .map(order -> Objects.requireNonNull(order, ORDER_REQUIRED).getOrderId())
+                .collect(java.util.stream.Collectors.toSet());
         return getOrderEventsForAggregateIds(orderIds, date, from, to);
     }
 
@@ -264,35 +282,38 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
-    public List<DomainEventEnvelope> getOrderEventsByCustomerEmail(String email, LocalDate date, LocalDate from, LocalDate to) {
+    public List<DomainEventEnvelope> getOrderEventsByCustomerEmail(String email, LocalDate date, LocalDate from,
+            LocalDate to) {
         Optional<CustomerDto> customer = customerClient.getCustomerByEmail(email);
         if (customer.isEmpty()) {
             throw new ResourceNotFoundException("Customer not found with email: " + email);
         }
-        Long customerId = customer.get().getId();
+        Long customerId = customer.get().getCustomerId();
         Set<Long> orderIds = orderSummaryViewRepository.findByCustomerId(customerId).stream()
-                .map(order -> Objects.requireNonNull(order, ORDER_REQUIRED).getId())
-            .collect(java.util.stream.Collectors.toSet());
+                .map(order -> Objects.requireNonNull(order, ORDER_REQUIRED).getOrderId())
+                .collect(java.util.stream.Collectors.toSet());
         return getOrderEventsForAggregateIds(orderIds, date, from, to);
     }
 
     @Transactional(readOnly = true)
-    public List<DomainEventEnvelope> getOrderEventsByCustomerPhone(String phone, LocalDate date, LocalDate from, LocalDate to) {
+    public List<DomainEventEnvelope> getOrderEventsByCustomerPhone(String phone, LocalDate date, LocalDate from,
+            LocalDate to) {
         Optional<CustomerDto> customer = customerClient.getCustomerByPhone(phone);
         if (customer.isEmpty()) {
             throw new ResourceNotFoundException("Customer not found with phone: " + phone);
         }
-        Long customerId = customer.get().getId();
+        Long customerId = customer.get().getCustomerId();
         Set<Long> orderIds = orderSummaryViewRepository.findByCustomerId(customerId).stream()
-                .map(order -> Objects.requireNonNull(order, ORDER_REQUIRED).getId())
-            .collect(java.util.stream.Collectors.toSet());
+                .map(order -> Objects.requireNonNull(order, ORDER_REQUIRED).getOrderId())
+                .collect(java.util.stream.Collectors.toSet());
         return getOrderEventsForAggregateIds(orderIds, date, from, to);
     }
 
     @Transactional(readOnly = true)
-    public List<DomainEventEnvelope> getOrderEventsByProductId(Long productId, LocalDate date, LocalDate from, LocalDate to) {
+    public List<DomainEventEnvelope> getOrderEventsByProductId(Long productId, LocalDate date, LocalDate from,
+            LocalDate to) {
         Set<Long> orderIds = orderSummaryViewRepository.findByProductId(productId).stream()
-                .map(order -> Objects.requireNonNull(order, ORDER_REQUIRED).getId())
+                .map(order -> Objects.requireNonNull(order, ORDER_REQUIRED).getOrderId())
                 .collect(java.util.stream.Collectors.toSet());
         return getOrderEventsForAggregateIds(orderIds, date, from, to);
     }
@@ -325,22 +346,26 @@ public class OrderService {
         List<OrderDomainEvent> events;
         if (start == null) {
             events = orderId != null
-                ? orderDomainEventRepository.findByAggregateTypeAndAggregateIdOrderByAggregateVersionAsc(
-                    ORDER_AGGREGATE_TYPE, orderId)
-                : orderIds != null
-                    ? orderDomainEventRepository.findByAggregateTypeAndAggregateIdInOrderByOccurredAtAscAggregateVersionAsc(
-                        ORDER_AGGREGATE_TYPE, orderIds)
-                    : orderDomainEventRepository.findByAggregateTypeOrderByOccurredAtAscAggregateVersionAsc(
-                        ORDER_AGGREGATE_TYPE);
+                    ? orderDomainEventRepository.findByAggregateTypeAndAggregateIdOrderByAggregateVersionAsc(
+                            ORDER_AGGREGATE_TYPE, orderId)
+                    : orderIds != null
+                            ? orderDomainEventRepository
+                                    .findByAggregateTypeAndAggregateIdInOrderByOccurredAtAscAggregateVersionAsc(
+                                            ORDER_AGGREGATE_TYPE, orderIds)
+                            : orderDomainEventRepository.findByAggregateTypeOrderByOccurredAtAscAggregateVersionAsc(
+                                    ORDER_AGGREGATE_TYPE);
         } else {
             events = orderId != null
-                ? orderDomainEventRepository.findByAggregateTypeAndAggregateIdAndOccurredAtGreaterThanEqualAndOccurredAtLessThanOrderByAggregateVersionAsc(
-                    ORDER_AGGREGATE_TYPE, orderId, start, end)
-                : orderIds != null
-                    ? orderDomainEventRepository.findByAggregateTypeAndAggregateIdInAndOccurredAtGreaterThanEqualAndOccurredAtLessThanOrderByOccurredAtAscAggregateVersionAsc(
-                        ORDER_AGGREGATE_TYPE, orderIds, start, end)
-                    : orderDomainEventRepository.findByAggregateTypeAndOccurredAtGreaterThanEqualAndOccurredAtLessThanOrderByOccurredAtAscAggregateVersionAsc(
-                        ORDER_AGGREGATE_TYPE, start, end);
+                    ? orderDomainEventRepository
+                            .findByAggregateTypeAndAggregateIdAndOccurredAtGreaterThanEqualAndOccurredAtLessThanOrderByAggregateVersionAsc(
+                                    ORDER_AGGREGATE_TYPE, orderId, start, end)
+                    : orderIds != null
+                            ? orderDomainEventRepository
+                                    .findByAggregateTypeAndAggregateIdInAndOccurredAtGreaterThanEqualAndOccurredAtLessThanOrderByOccurredAtAscAggregateVersionAsc(
+                                            ORDER_AGGREGATE_TYPE, orderIds, start, end)
+                            : orderDomainEventRepository
+                                    .findByAggregateTypeAndOccurredAtGreaterThanEqualAndOccurredAtLessThanOrderByOccurredAtAscAggregateVersionAsc(
+                                            ORDER_AGGREGATE_TYPE, start, end);
         }
         return events.stream()
                 .map(this::toDomainEventEnvelope)
@@ -365,15 +390,21 @@ public class OrderService {
     }
 
     private void appendOrderEvent(String eventType, Order order) {
+        appendOrderEvent(eventType, order, order.getAggregateVersion());
+    }
+
+    private void appendOrderEvent(String eventType, Order order, long aggregateVersion) {
         try {
             Map<String, Object> payload = orderPayload(order);
             OrderDomainEvent event = new OrderDomainEvent(UUID.randomUUID(), ORDER_AGGREGATE_TYPE,
-                    order.getId(), order.getAggregateVersion(), eventType, Instant.now(), null, null,
+                    order.getOrderId(), aggregateVersion, eventType, Instant.now(), null, null,
                     objectMapper.writeValueAsString(payload));
             orderDomainEventRepository.save(event);
-            domainEventPublisher.publish(eventTopic, new DomainEventMessage(event.getEventId(), event.getAggregateType(),
-                    event.getAggregateId(), event.getAggregateVersion(), event.getEventType(), event.getOccurredAt(),
-                    event.getCorrelationId(), event.getCausationId(), payload));
+            domainEventPublisher.publish(eventTopic,
+                    new DomainEventMessage(event.getEventId(), event.getAggregateType(),
+                            event.getAggregateId(), event.getAggregateVersion(), event.getEventType(),
+                            event.getOccurredAt(),
+                            event.getCorrelationId(), event.getCausationId(), payload));
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("Unable to serialize order event payload", exception);
         }
@@ -382,39 +413,40 @@ public class OrderService {
     private void initializeAggregateVersion(Order order) {
         if (!order.hasAggregateVersion()) {
             order.initializeAggregateVersion(orderDomainEventRepository.findMaxAggregateVersion(
-                    ORDER_AGGREGATE_TYPE, order.getId()));
+                    ORDER_AGGREGATE_TYPE, order.getOrderId()));
         }
     }
 
     private Map<String, Object> orderPayload(Order order) {
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("orderId", order.getId());
+        payload.put("orderId", order.getOrderId());
         payload.put("customerId", order.getCustomerId());
         payload.put("address", toAddressDto(order.getAddress()));
         payload.put("items", order.getItems().stream()
-            .map(item -> new OrderItemEventPayload(item.getProductId(), item.getName(), item.getPrice(),
-                item.getQuantity(), item.getSubtotal()))
-            .toList());
+                .map(item -> new OrderItemEventPayload(item.getProductId(), item.getName(), item.getPrice(),
+                        item.getQuantity(), item.getSubtotal()))
+                .toList());
         payload.put("total", order.getTotal());
         payload.put("status", order.getStatus());
         return payload;
     }
 
     private void upsertOrderSummary(Order order, LocalDateTime createdAt) {
-        orderSummaryViewRepository.save(new OrderSummaryView(order.getId(), order.getCustomerId(), order.getTotal(),
+        orderSummaryViewRepository.save(new OrderSummaryView(order.getOrderId(), order.getCustomerId(), order.getTotal(),
                 order.getStatus(), createdAt, order.getAddress(), order.getItems()));
     }
 
     private LocalDateTime existingCreatedAt(Long orderId) {
         Long resolvedOrderId = Objects.requireNonNull(orderId, ORDER_ID_REQUIRED);
         return orderSummaryViewRepository.findById(resolvedOrderId)
-            .map(view -> Objects.requireNonNull(view.getCreatedAt()))
-            .orElseGet(() -> LocalDateTime.now(ZoneOffset.UTC));
+                .map(view -> Objects.requireNonNull(view.getCreatedAt()))
+                .orElseGet(() -> LocalDateTime.now(ZoneOffset.UTC));
     }
 
     private DomainEventEnvelope toDomainEventEnvelope(OrderDomainEvent event) {
         try {
-            Map<String, Object> payload = objectMapper.readValue(event.getPayload(), new TypeReference<>() { });
+            Map<String, Object> payload = objectMapper.readValue(event.getPayload(), new TypeReference<>() {
+            });
             DomainEventEnvelope envelope = new DomainEventEnvelope();
             envelope.setEventId(event.getEventId());
             envelope.setAggregateType(event.getAggregateType());
@@ -433,29 +465,31 @@ public class OrderService {
 
     public OrderResponse toOrderResponse(Order order) {
         List<OrderItemDto> itemDtos = order.getItems().stream()
-                .map(i -> new OrderItemDto(i.getProductId(), i.getName(), i.getPrice(), i.getQuantity(), i.getSubtotal()))
+                .map(i -> new OrderItemDto(i.getProductId(), i.getName(), i.getPrice(), i.getQuantity(),
+                        i.getSubtotal()))
                 .toList();
 
         return new OrderResponse(
-                order.getId(),
+                order.getOrderId(),
                 order.getCustomerId(),
                 toAddressDto(order.getAddress()),
                 itemDtos,
                 order.getTotal(),
-                order.getStatus()
-        );
+                order.getStatus());
     }
 
-        public OrderResponse toOrderResponse(OrderSummaryView order) {
+    public OrderResponse toOrderResponse(OrderSummaryView order) {
         List<OrderItemDto> itemDtos = order.getItems().stream()
-            .map(i -> new OrderItemDto(i.getProductId(), i.getName(), i.getPrice(), i.getQuantity(), i.getSubtotal()))
-            .toList();
-        return new OrderResponse(order.getId(), order.getCustomerId(), toAddressDto(order.getAddress()), itemDtos,
-            order.getTotal(), order.getStatus());
-        }
+                .map(i -> new OrderItemDto(i.getProductId(), i.getName(), i.getPrice(), i.getQuantity(),
+                        i.getSubtotal()))
+                .toList();
+        return new OrderResponse(order.getOrderId(), order.getCustomerId(), toAddressDto(order.getAddress()), itemDtos,
+                order.getTotal(), order.getStatus());
+    }
 
     public Address toAddress(AddressDto dto) {
-        if (dto == null) return null;
+        if (dto == null)
+            return null;
         return new Address(
                 dto.getUnitNumber(),
                 dto.getStreetNumber(),
@@ -464,12 +498,12 @@ public class OrderService {
                 dto.getCity(),
                 dto.getPostcode(),
                 dto.getState(),
-                dto.getCountry()
-        );
+                dto.getCountry());
     }
 
     public AddressDto toAddressDto(Address address) {
-        if (address == null) return null;
+        if (address == null)
+            return null;
         return new AddressDto(
                 address.getUnitNumber(),
                 address.getStreetNumber(),
@@ -478,7 +512,6 @@ public class OrderService {
                 address.getCity(),
                 address.getPostcode(),
                 address.getState(),
-                address.getCountry()
-        );
+                address.getCountry());
     }
 }

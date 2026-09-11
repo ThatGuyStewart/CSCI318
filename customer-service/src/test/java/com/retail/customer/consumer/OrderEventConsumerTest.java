@@ -36,7 +36,7 @@ class OrderEventConsumerTest {
     private ProcessedOrderEventRepository processedOrderEventRepository;
 
     @Test
-    void clearsBasketForAPlacedOrderAndRecordsTheEvent() {
+    void clearsBasketForAnOrderUsingTheBasketAndRecordsTheEvent() {
         DomainEventMessage event = placedOrderEvent(UUID.randomUUID());
         Basket basket = new Basket(5L);
         basket.addItem(9L, "Drill", 10.0, 2);
@@ -61,14 +61,14 @@ class OrderEventConsumerTest {
 
         consumer.onOrderEvent(duplicate);
         consumer.onOrderEvent(new DomainEventMessage(UUID.randomUUID(), "Order", 1L, 1,
-                "OrderCancelledEvent", Instant.now(), null, null, Map.of("customerId", 5L)));
+                "OrderPlacedEvent", Instant.now(), null, null, Map.of("customerId", 5L)));
 
         verify(processedOrderEventRepository, never()).save(any());
         verify(basketRepository, never()).findById(any());
     }
 
     private DomainEventMessage placedOrderEvent(UUID eventId) {
-        return new DomainEventMessage(eventId, "Order", 1L, 1, "OrderPlacedEvent", Instant.now(), null, null,
+        return new DomainEventMessage(eventId, "Order", 1L, 1, "BasketUsedForOrderEvent", Instant.now(), null, null,
                 Map.of("customerId", 5L));
     }
 }

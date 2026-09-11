@@ -14,7 +14,8 @@ import jakarta.persistence.Table;
 public class NotificationView {
 
     @Id
-    private Long id;
+    @Column(name = "notification_id")
+    private Long notificationId;
 
     @Column(nullable = false)
     private Long customerId;
@@ -32,15 +33,15 @@ public class NotificationView {
     public NotificationView() {
     }
 
-    public NotificationView(Long id, Long customerId, DeliveryType type, String message, LocalDateTime sent) {
-        this.id = id;
+    public NotificationView(Long notificationId, Long customerId, DeliveryType type, String message, LocalDateTime sent) {
+        this.notificationId = notificationId;
         this.customerId = customerId;
         this.type = type;
         this.message = message;
         this.sent = sent;
     }
 
-    public Long getId() { return id; }
+    public Long getNotificationId() { return notificationId; }
     public Long getCustomerId() { return customerId; }
     public DeliveryType getType() { return type; }
     public String getMessage() { return message; }

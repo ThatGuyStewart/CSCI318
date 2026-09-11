@@ -93,7 +93,7 @@ public class CustomerService {
         Customer savedCustomer = customerRepository.save(customer);
 
         // Automatically initialize basket for the customer
-        Basket basket = new Basket(savedCustomer.getId());
+        Basket basket = new Basket(savedCustomer.getCustomerId());
         basketRepository.save(basket);
         appendCustomerEvent("CustomerCreatedEvent", savedCustomer);
         upsertCustomerView(savedCustomer, basket.getTotal());
@@ -181,7 +181,7 @@ public class CustomerService {
     public List<DomainEventEnvelope> getCustomerEventsByPhone(String phone, LocalDate date, LocalDate from, LocalDate to) {
         CustomerView customer = customerViewRepository.findByPhone(phone)
                 .orElseThrow(() -> new ResourceNotFoundException(CUSTOMER_NOT_FOUND_PHONE + phone));
-        return findCustomerEvents(date, from, to, customer.getId());
+        return findCustomerEvents(date, from, to, customer.getCustomerId());
     }
 
         private List<DomainEventEnvelope> findCustomerEvents(LocalDate date, LocalDate from, LocalDate to,
@@ -288,7 +288,7 @@ public class CustomerService {
             throw new IllegalStateException("Unable to serialize customer event payload", exception);
         }
         CustomerDomainEvent event = new CustomerDomainEvent(UUID.randomUUID(), CUSTOMER_AGGREGATE_TYPE,
-            customer.getId(), customer.getEmail(), customer.getAggregateVersion(), eventType, Instant.now(), null, null,
+            customer.getCustomerId(), customer.getEmail(), customer.getAggregateVersion(), eventType, Instant.now(), null, null,
             serializedPayload);
         customerDomainEventRepository.save(event);
         domainEventPublisher.publish(eventTopic, new DomainEventMessage(event.getEventId(), event.getAggregateType(),
@@ -299,13 +299,13 @@ public class CustomerService {
     private void initializeAggregateVersion(Customer customer) {
         if (!customer.hasAggregateVersion()) {
             customer.initializeAggregateVersion(customerDomainEventRepository.findMaxAggregateVersion(
-                    CUSTOMER_AGGREGATE_TYPE, customer.getId()));
+                    CUSTOMER_AGGREGATE_TYPE, customer.getCustomerId()));
         }
     }
 
     private Map<String, Object> customerPayload(Customer customer) {
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("customerId", customer.getId());
+        payload.put("customerId", customer.getCustomerId());
         payload.put("name", customer.getName());
         payload.put("email", customer.getEmail());
         payload.put("phone", customer.getPhone());
@@ -315,7 +315,7 @@ public class CustomerService {
     }
 
     private void upsertCustomerView(Customer customer, Double basketTotal) {
-        customerViewRepository.save(new CustomerView(customer.getId(), customer.getName(), customer.getEmail(),
+        customerViewRepository.save(new CustomerView(customer.getCustomerId(), customer.getName(), customer.getEmail(),
                 customer.getPhone(), customer.getContactMethod(), customer.getAddress(), basketTotal));
     }
 
@@ -348,7 +348,7 @@ public class CustomerService {
 
     public CustomerResponse toCustomerResponse(Customer customer) {
         return new CustomerResponse(
-                customer.getId(),
+                customer.getCustomerId(),
                 customer.getName(),
                 customer.getEmail(),
                 customer.getPhone(),
@@ -358,7 +358,7 @@ public class CustomerService {
     }
 
     public CustomerResponse toCustomerResponse(CustomerView customer) {
-        return new CustomerResponse(customer.getId(), customer.getName(), customer.getEmail(), customer.getPhone(),
+        return new CustomerResponse(customer.getCustomerId(), customer.getName(), customer.getEmail(), customer.getPhone(),
                 customer.getContactMethod(), toAddressDto(customer.getAddress()));
     }
 

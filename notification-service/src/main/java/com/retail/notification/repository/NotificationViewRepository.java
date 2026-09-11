@@ -9,5 +9,8 @@ import com.retail.notification.domain.NotificationView;
 
 public interface NotificationViewRepository extends JpaRepository<NotificationView, Long> {
     List<NotificationView> findByCustomerId(Long customerId);
+
+    List<NotificationView> findByCustomerIdAndSentBetween(Long customerId, LocalDateTime start, LocalDateTime end);
+
     List<NotificationView> findBySentBetween(LocalDateTime start, LocalDateTime end);
 }

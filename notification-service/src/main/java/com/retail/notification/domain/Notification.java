@@ -9,7 +9,8 @@ public class Notification {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "notification_id")
+    private Long notificationId;
 
     @Column(nullable = false)
     private Long customerId;
@@ -34,12 +35,12 @@ public class Notification {
         this.sent = sent != null ? sent : LocalDateTime.now();
     }
 
-    public Long getId() {
-        return id;
+    public Long getNotificationId() {
+        return notificationId;
     }
 
-    public void setId(Long id) {
-        this.id = id;
+    public void setNotificationId(Long notificationId) {
+        this.notificationId = notificationId;
     }
 
     public Long getCustomerId() {

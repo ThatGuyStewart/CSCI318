@@ -3,7 +3,7 @@ package com.retail.product.dto;
 import com.retail.product.domain.ProductCategory;
 
 public class ProductResponse {
-    private Long id;
+    private Long productId;
     private String name;
     private ProductCategory category;
     private Double price;
@@ -12,20 +12,20 @@ public class ProductResponse {
     public ProductResponse() {
     }
 
-    public ProductResponse(Long id, String name, ProductCategory category, Double price, String description) {
-        this.id = id;
+    public ProductResponse(Long productId, String name, ProductCategory category, Double price, String description) {
+        this.productId = productId;
         this.name = name;
         this.category = category;
         this.price = price;
         this.description = description;
     }
 
-    public Long getId() {
-        return id;
+    public Long getProductId() {
+        return productId;
     }
 
-    public void setId(Long id) {
-        this.id = id;
+    public void setProductId(Long productId) {
+        this.productId = productId;
     }
 
     public String getName() {

@@ -2,9 +2,14 @@ package com.retail.order.dto;
 
 import java.util.List;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+
 public class OrderCreateRequest {
+    @NotNull
     private Long customerId;
     private AddressDto address;
+    @Valid
     private List<OrderItemDto> items;
 
     public OrderCreateRequest() {

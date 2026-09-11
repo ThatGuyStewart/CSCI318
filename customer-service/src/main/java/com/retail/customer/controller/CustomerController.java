@@ -163,9 +163,4 @@ public class CustomerController {
         return ResponseEntity.ok(response);
     }
 
-    @DeleteMapping("/{id}/basket/clear")
-    public ResponseEntity<Void> clearBasket(@PathVariable("id") Long id) {
-        basketService.clearBasket(id);
-        return ResponseEntity.noContent().build();
-    }
 }

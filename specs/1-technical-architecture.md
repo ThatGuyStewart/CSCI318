@@ -44,7 +44,7 @@ The project is structured as a multi-module repository:
   * **Domain Layer**: `@Entity`
   * **Data Access Layer**: `@Repository`
 * **Database**: H2 in-memory database for development
-* **Inter-Service Compatibility**: Apache Kafka with DTOs to be used for communication between services
+* **Inter-Service Compatibility**: DTOs to be used for communication between services
 * **AI-Powered**: LangChain4j to translate natural language user commands into appropriate api executions
 * **Unit \& Integration Testing**: `MockMvc`, `@SpringBootTest`, `JUnit 5`
 
@@ -52,7 +52,8 @@ The project is structured as a multi-module repository:
 
 ## Design Principles
 
-* Event oriented, aggregated Domains
+* Aggregated domains
+* Event streaming with Apache Kafka Streams
 * Domain Events handlers within service layer
 * Event Sourcing using CQRS
 

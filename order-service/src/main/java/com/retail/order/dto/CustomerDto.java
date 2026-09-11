@@ -1,7 +1,7 @@
 package com.retail.order.dto;
 
 public class CustomerDto {
-    private Long id;
+    private Long customerId;
     private String name;
     private String email;
     private String phone;
@@ -11,8 +11,8 @@ public class CustomerDto {
     public CustomerDto() {
     }
 
-    public CustomerDto(Long id, String name, String email, String phone, String contactMethod, AddressDto address) {
-        this.id = id;
+    public CustomerDto(Long customerId, String name, String email, String phone, String contactMethod, AddressDto address) {
+        this.customerId = customerId;
         this.name = name;
         this.email = email;
         this.phone = phone;
@@ -20,12 +20,12 @@ public class CustomerDto {
         this.address = address;
     }
 
-    public Long getId() {
-        return id;
+    public Long getCustomerId() {
+        return customerId;
     }
 
-    public void setId(Long id) {
-        this.id = id;
+    public void setCustomerId(Long customerId) {
+        this.customerId = customerId;
     }
 
     public String getName() {

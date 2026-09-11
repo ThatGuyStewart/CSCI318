@@ -13,7 +13,8 @@ import jakarta.persistence.Table;
 public class CustomerView {
 
     @Id
-    private Long id;
+    @Column(name = "customer_id")
+    private Long customerId;
 
     @Column(nullable = false)
     private String name;
@@ -37,9 +38,9 @@ public class CustomerView {
     public CustomerView() {
     }
 
-    public CustomerView(Long id, String name, String email, String phone, ContactMethod contactMethod, Address address,
+    public CustomerView(Long customerId, String name, String email, String phone, ContactMethod contactMethod, Address address,
             Double basketTotal) {
-        this.id = id;
+        this.customerId = customerId;
         this.name = name;
         this.email = email;
         this.phone = phone;
@@ -48,7 +49,7 @@ public class CustomerView {
         this.basketTotal = basketTotal != null ? basketTotal : 0.0;
     }
 
-    public Long getId() { return id; }
+    public Long getCustomerId() { return customerId; }
     public String getName() { return name; }
     public String getEmail() { return email; }
     public String getPhone() { return phone; }

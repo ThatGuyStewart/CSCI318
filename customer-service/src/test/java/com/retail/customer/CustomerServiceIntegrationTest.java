@@ -78,7 +78,7 @@ class CustomerServiceIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(createRequest)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").isNumber())
+                .andExpect(jsonPath("$.customerId").isNumber())
                 .andExpect(jsonPath("$.name").value("John Doe"))
                 .andExpect(jsonPath("$.email").value("john.doe@example.com"))
                 .andExpect(jsonPath("$.contactMethod").value("Email"))
@@ -88,9 +88,9 @@ class CustomerServiceIntegrationTest {
         CustomerResponse created = objectMapper.readValue(responseJson, CustomerResponse.class);
 
         // Get by ID
-        mockMvc.perform(get("/customer/" + created.getId()))
+        mockMvc.perform(get("/customer/" + created.getCustomerId()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(created.getId()))
+                .andExpect(jsonPath("$.customerId").value(created.getCustomerId()))
                 .andExpect(jsonPath("$.name").value("John Doe"));
 
         // List all
@@ -101,7 +101,7 @@ class CustomerServiceIntegrationTest {
 
         org.junit.jupiter.api.Assertions.assertTrue(customersJson.contains("\n"));
 
-        org.junit.jupiter.api.Assertions.assertTrue(customerViewRepository.existsById(created.getId()));
+        org.junit.jupiter.api.Assertions.assertTrue(customerViewRepository.existsById(created.getCustomerId()));
     }
 
     @Test
@@ -143,7 +143,7 @@ class CustomerServiceIntegrationTest {
                 "Alice Johnson", null, null, ContactMethod.Email, null
         );
 
-        mockMvc.perform(put("/customer/" + created.getId())
+        mockMvc.perform(put("/customer/" + created.getCustomerId())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(updateRequest)))
                 .andExpect(status().isOk())
@@ -154,7 +154,7 @@ class CustomerServiceIntegrationTest {
         AddressUpdateRequest addressUpdate = new AddressUpdateRequest(
                 5, 200, "Pitt St", "Sydney CBD", "Sydney", 2000, "NSW", "Australia"
         );
-        mockMvc.perform(put("/customer/" + created.getId() + "/address")
+        mockMvc.perform(put("/customer/" + created.getCustomerId() + "/address")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(addressUpdate)))
                 .andExpect(status().isOk())
@@ -177,11 +177,11 @@ class CustomerServiceIntegrationTest {
         CustomerResponse created = objectMapper.readValue(responseJson, CustomerResponse.class);
 
         // Delete
-        mockMvc.perform(delete("/customer/" + created.getId()))
+        mockMvc.perform(delete("/customer/" + created.getCustomerId()))
                 .andExpect(status().isNoContent());
 
         // Get after delete should be 404
-        mockMvc.perform(get("/customer/" + created.getId()))
+        mockMvc.perform(get("/customer/" + created.getCustomerId()))
                 .andExpect(status().isNotFound());
     }
 
@@ -196,15 +196,15 @@ class CustomerServiceIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
         CustomerResponse created = objectMapper.readValue(responseJson, CustomerResponse.class);
 
-        mockMvc.perform(put("/customer/" + created.getId())
+        mockMvc.perform(put("/customer/" + created.getCustomerId())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new CustomerUpdateRequest(
                                 "Updated Event Customer", null, null, null, null))))
                 .andExpect(status().isOk());
-        mockMvc.perform(delete("/customer/" + created.getId()))
+        mockMvc.perform(delete("/customer/" + created.getCustomerId()))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/customer/" + created.getId() + "/event"))
+        mockMvc.perform(get("/customer/" + created.getCustomerId() + "/event"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(3)))
                 .andExpect(jsonPath("$[0].eventType").value("CustomerCreatedEvent"))
@@ -251,19 +251,19 @@ class CustomerServiceIntegrationTest {
         CustomerResponse created = objectMapper.readValue(responseJson, CustomerResponse.class);
 
         // Initial Basket should be empty
-        mockMvc.perform(get("/customer/" + created.getId() + "/basket"))
+        mockMvc.perform(get("/customer/" + created.getCustomerId() + "/basket"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.customerId").value(created.getId()))
+                .andExpect(jsonPath("$.customerId").value(created.getCustomerId()))
                 .andExpect(jsonPath("$.items", hasSize(0)))
                 .andExpect(jsonPath("$.total").value(0.0));
 
-        mockMvc.perform(get("/customer/" + created.getId() + "//basket/"))
+        mockMvc.perform(get("/customer/" + created.getCustomerId() + "//basket/"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.customerId").value(created.getId()));
+                .andExpect(jsonPath("$.customerId").value(created.getCustomerId()));
 
         // Add 2 Laptops
         BasketAddRequest addRequest = new BasketAddRequest(101L, 2);
-        mockMvc.perform(post("/customer/" + created.getId() + "/basket")
+        mockMvc.perform(post("/customer/" + created.getCustomerId() + "/basket")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(addRequest)))
                 .andExpect(status().isOk())
@@ -275,7 +275,7 @@ class CustomerServiceIntegrationTest {
 
         // Remove 1 Laptop
         BasketRemoveRequest removeRequest = new BasketRemoveRequest(101L, 1);
-        mockMvc.perform(delete("/customer/" + created.getId() + "/basket")
+        mockMvc.perform(delete("/customer/" + created.getCustomerId() + "/basket")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(removeRequest)))
                 .andExpect(status().isOk())
@@ -283,14 +283,14 @@ class CustomerServiceIntegrationTest {
                 .andExpect(jsonPath("$.total").value(1200.0));
 
         // Remove remaining quantity -> item should be removed completely
-        mockMvc.perform(delete("/customer/" + created.getId() + "/basket")
+        mockMvc.perform(delete("/customer/" + created.getCustomerId() + "/basket")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(removeRequest)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items", hasSize(0)))
                 .andExpect(jsonPath("$.total").value(0.0));
 
-        mockMvc.perform(get("/customer/" + created.getId() + "/event"))
+        mockMvc.perform(get("/customer/" + created.getCustomerId() + "/event"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(4)))
                 .andExpect(jsonPath("$[1].eventType").value("BasketItemAddedEvent"))

@@ -33,8 +33,8 @@ class OrderEventConsumerTest {
     private NotificationService notificationService;
 
     @Test
-    void createsNotificationForAnOrderStatusChange() {
-        DomainEventMessage event = orderEvent(UUID.randomUUID(), "OrderStatusChangedEvent");
+    void createsNotificationForAnOrderCancellation() {
+        DomainEventMessage event = orderEvent(UUID.randomUUID(), "OrderCancelledEvent");
         when(processedOrderEventRepository.existsById(event.eventId())).thenReturn(false);
 
         new OrderEventConsumer(processedOrderEventRepository, notificationService).onOrderEvent(event);
@@ -42,7 +42,20 @@ class OrderEventConsumerTest {
         ArgumentCaptor<NotificationCreateRequest> request = ArgumentCaptor.forClass(NotificationCreateRequest.class);
         verify(processedOrderEventRepository).save(any());
         verify(notificationService).createNotificationForCustomerId(org.mockito.ArgumentMatchers.eq(3L), request.capture());
-        assertThat(request.getValue().getMessage()).isEqualTo("Your order #42 status has changed to Shipped.");
+        assertThat(request.getValue().getMessage()).isEqualTo("Your order #42 has been cancelled.");
+    }
+
+    @Test
+    void createsNotificationForARejectedOrderCancellation() {
+        DomainEventMessage event = orderEvent(UUID.randomUUID(), "OrderCancelFailedEvent");
+        when(processedOrderEventRepository.existsById(event.eventId())).thenReturn(false);
+
+        new OrderEventConsumer(processedOrderEventRepository, notificationService).onOrderEvent(event);
+
+        ArgumentCaptor<NotificationCreateRequest> request = ArgumentCaptor.forClass(NotificationCreateRequest.class);
+        verify(notificationService).createNotificationForCustomerId(org.mockito.ArgumentMatchers.eq(3L), request.capture());
+        assertThat(request.getValue().getMessage())
+                .isEqualTo("Your order #42 could not be cancelled. Please contact customer service for assistance.");
     }
 
     @Test

@@ -1,18 +1,22 @@
 package com.retail.notification.client;
 
-import com.retail.common.ServiceUriBuilder;
-import com.retail.common.ServicePropertyKeys;
-import com.retail.notification.config.CustomerServiceProperties;
-import com.retail.notification.dto.CustomerDto;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.lang.NonNull;
-import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClient;
-
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.lang.NonNull;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
+
+import com.retail.common.ServicePropertyKeys;
+import com.retail.common.ServiceUriBuilder;
+import com.retail.notification.config.CustomerServiceProperties;
+import com.retail.notification.dto.CustomerDto;
+import com.retail.notification.exception.ServiceUnavailableException;
 
 @Component
 public class CustomerClient {
@@ -40,8 +44,10 @@ public class CustomerClient {
                     .retrieve()
                     .body(CustomerDto.class);
             return Optional.ofNullable(customer);
-        } catch (Exception e) {
-            return Optional.empty();
+        } catch (RestClientResponseException exception) {
+            return notFoundOrUnavailable(exception);
+        } catch (RestClientException exception) {
+            throw new ServiceUnavailableException("Customer service is unavailable", exception);
         }
     }
 
@@ -52,8 +58,10 @@ public class CustomerClient {
                     .retrieve()
                     .body(CustomerDto.class);
             return Optional.ofNullable(customer);
-        } catch (Exception e) {
-            return Optional.empty();
+        } catch (RestClientResponseException exception) {
+            return notFoundOrUnavailable(exception);
+        } catch (RestClientException exception) {
+            throw new ServiceUnavailableException("Customer service is unavailable", exception);
         }
     }
 
@@ -64,21 +72,29 @@ public class CustomerClient {
                     .retrieve()
                     .body(CustomerDto.class);
             return Optional.ofNullable(customer);
-        } catch (Exception e) {
-            return Optional.empty();
+        } catch (RestClientResponseException exception) {
+            return notFoundOrUnavailable(exception);
+        } catch (RestClientException exception) {
+            throw new ServiceUnavailableException("Customer service is unavailable", exception);
         }
     }
 
     public List<CustomerDto> getAllCustomers() {
         try {
             List<CustomerDto> customers = restClient.get()
-                .uri(customerCollectionUri)
+                    .uri(customerCollectionUri)
                     .retrieve()
                     .body(new ParameterizedTypeReference<List<CustomerDto>>() {});
             return customers != null ? customers : Collections.emptyList();
-        } catch (Exception e) {
-            return Collections.emptyList();
+        } catch (RestClientException exception) {
+            throw new ServiceUnavailableException("Customer service is unavailable", exception);
         }
     }
 
+    private <T> Optional<T> notFoundOrUnavailable(RestClientResponseException exception) {
+        if (exception.getStatusCode().value() == 404) {
+            return Optional.empty();
+        }
+        throw new ServiceUnavailableException("Customer service is unavailable", exception);
+    }
 }

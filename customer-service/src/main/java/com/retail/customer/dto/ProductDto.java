@@ -1,7 +1,7 @@
 package com.retail.customer.dto;
 
 public class ProductDto {
-    private Long id;
+    private Long productId;
     private String name;
     private String category;
     private Double price;
@@ -10,20 +10,20 @@ public class ProductDto {
     public ProductDto() {
     }
 
-    public ProductDto(Long id, String name, String category, Double price, String description) {
-        this.id = id;
+    public ProductDto(Long productId, String name, String category, Double price, String description) {
+        this.productId = productId;
         this.name = name;
         this.category = category;
         this.price = price;
         this.description = description;
     }
 
-    public Long getId() {
-        return id;
+    public Long getProductId() {
+        return productId;
     }
 
-    public void setId(Long id) {
-        this.id = id;
+    public void setProductId(Long productId) {
+        this.productId = productId;
     }
 
     public String getName() {

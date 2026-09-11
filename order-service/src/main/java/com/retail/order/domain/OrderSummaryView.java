@@ -21,7 +21,8 @@ import jakarta.persistence.Table;
 public class OrderSummaryView {
 
     @Id
-    private Long id;
+    @Column(name = "order_id")
+    private Long orderId;
 
     @Column(nullable = false)
     private Long customerId;
@@ -51,9 +52,9 @@ public class OrderSummaryView {
     public OrderSummaryView() {
     }
 
-    public OrderSummaryView(Long id, Long customerId, Double total, OrderStatus status, LocalDateTime createdAt,
+    public OrderSummaryView(Long orderId, Long customerId, Double total, OrderStatus status, LocalDateTime createdAt,
             Address address, List<OrderItem> items) {
-        this.id = id;
+        this.orderId = orderId;
         this.customerId = customerId;
         this.total = total;
         this.status = status;
@@ -63,7 +64,7 @@ public class OrderSummaryView {
         this.productIds = this.items.stream().map(OrderItem::getProductId).toList();
     }
 
-    public Long getId() { return id; }
+    public Long getOrderId() { return orderId; }
     public Long getCustomerId() { return customerId; }
     public Double getTotal() { return total; }
     public OrderStatus getStatus() { return status; }

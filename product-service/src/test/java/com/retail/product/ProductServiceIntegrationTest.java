@@ -55,7 +55,7 @@ class ProductServiceIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").isNumber())
+                .andExpect(jsonPath("$.productId").isNumber())
                 .andExpect(jsonPath("$.name").value("Wireless Headphones"))
                 .andExpect(jsonPath("$.category").value("Electronics"))
                 .andExpect(jsonPath("$.price").value(150.0))
@@ -64,9 +64,9 @@ class ProductServiceIntegrationTest {
         ProductResponse created = objectMapper.readValue(responseJson, ProductResponse.class);
 
         // Get by ID
-        mockMvc.perform(get("/product/" + created.getId()))
+        mockMvc.perform(get("/product/" + created.getProductId()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(created.getId()))
+                .andExpect(jsonPath("$.productId").value(created.getProductId()))
                 .andExpect(jsonPath("$.name").value("Wireless Headphones"));
 
         // List all
@@ -88,7 +88,7 @@ class ProductServiceIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString(), ProductResponse.class);
 
-        org.junit.jupiter.api.Assertions.assertTrue(productViewRepository.existsById(created.getId()));
+        org.junit.jupiter.api.Assertions.assertTrue(productViewRepository.existsById(created.getProductId()));
     }
 
     @Test
@@ -134,7 +134,7 @@ class ProductServiceIntegrationTest {
                 "Espresso Machine", ProductCategory.Appliances, 120.0, "Espresso maker"
         );
 
-        mockMvc.perform(put("/product/" + created.getId())
+        mockMvc.perform(put("/product/" + created.getProductId())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(updateRequest)))
                 .andExpect(status().isOk())
@@ -156,10 +156,10 @@ class ProductServiceIntegrationTest {
 
         ProductResponse created = objectMapper.readValue(responseJson, ProductResponse.class);
 
-        mockMvc.perform(delete("/product/" + created.getId()))
+        mockMvc.perform(delete("/product/" + created.getProductId()))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/product/" + created.getId()))
+        mockMvc.perform(get("/product/" + created.getProductId()))
                 .andExpect(status().isNotFound());
     }
 
@@ -195,12 +195,12 @@ class ProductServiceIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString(), ProductResponse.class);
 
-        mockMvc.perform(put("/product/" + created.getId())
+        mockMvc.perform(put("/product/" + created.getProductId())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new ProductUpdateRequest(null,
                                 ProductCategory.Furniture, null, null))))
                 .andExpect(status().isOk());
-        mockMvc.perform(delete("/product/" + created.getId()))
+        mockMvc.perform(delete("/product/" + created.getProductId()))
                 .andExpect(status().isNoContent());
 
         mockMvc.perform(get("/product/category/Electronics/event"))
@@ -226,15 +226,15 @@ class ProductServiceIntegrationTest {
 
         ProductResponse created = objectMapper.readValue(responseJson, ProductResponse.class);
 
-        mockMvc.perform(put("/product/" + created.getId())
+        mockMvc.perform(put("/product/" + created.getProductId())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new ProductUpdateRequest(
                                 "Premium Yoga Mat", ProductCategory.Grocery, 35.0, "Thicker exercise mat"))))
                 .andExpect(status().isOk());
-        mockMvc.perform(delete("/product/" + created.getId()))
+        mockMvc.perform(delete("/product/" + created.getProductId()))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/product/" + created.getId() + "/event"))
+        mockMvc.perform(get("/product/" + created.getProductId() + "/event"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(3)))
                 .andExpect(jsonPath("$[0].eventType").value("ProductCreatedEvent"))

@@ -4,7 +4,7 @@ import com.retail.order.domain.OrderStatus;
 import java.util.List;
 
 public class OrderResponse {
-    private Long id;
+    private Long orderId;
     private Long customerId;
     private AddressDto address;
     private List<OrderItemDto> items;
@@ -14,8 +14,8 @@ public class OrderResponse {
     public OrderResponse() {
     }
 
-    public OrderResponse(Long id, Long customerId, AddressDto address, List<OrderItemDto> items, Double total, OrderStatus status) {
-        this.id = id;
+    public OrderResponse(Long orderId, Long customerId, AddressDto address, List<OrderItemDto> items, Double total, OrderStatus status) {
+        this.orderId = orderId;
         this.customerId = customerId;
         this.address = address;
         this.items = items;
@@ -23,12 +23,12 @@ public class OrderResponse {
         this.status = status;
     }
 
-    public Long getId() {
-        return id;
+    public Long getOrderId() {
+        return orderId;
     }
 
-    public void setId(Long id) {
-        this.id = id;
+    public void setOrderId(Long orderId) {
+        this.orderId = orderId;
     }
 
     public Long getCustomerId() {

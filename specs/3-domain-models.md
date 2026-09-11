@@ -54,8 +54,10 @@ It reflects the updated architecture: **CQRS**, **event sourcing**, **aggregates
 **Domain Events:**
 
 * `OrderPlacedEvent`
-* `OrderCancelledEvent`
+* `BasketUsedForOrderEvent`
 * `OrderStatusChangedEvent`
+* `OrderCancelledEvent`
+* `OrderCancelFailedEvent`
 
 
 
@@ -79,16 +81,16 @@ The Customer Service manages the record of customers, their addresses, and their
 
 
 
-## 2.1.1 `Customer` (Aggregate Root)
+## 2.1.1 `Customer` (Entity, Aggregate Root)
 
 Represents a customer.
 
 |Field Name|Type|Description|Constraints / Notes|
 |-|-|-|-|
-|`id`|`Long`|Unique identifier for the customer|Primary Identifier|
+|`customerId`|`Long`|Unique identifier for the customer|Primary Identifier|
 |`name`|`String`|Name of the customer|Required|
 |`email`|`String`|Email address of the customer|Required. Unique|
-|`phone`|`Int`|Phone number of the customer|Required. Unique, not negative|
+|`phone`|`String`|Phone number of the customer|Required. Unique, not negative|
 |`contactMethod`|`Enum`|Customer's preferred contact method. ContactMethod (`Email`, `Phone`)|`Email` by default|
 |`address`|`Address`|Customer's residential address|Required|
 
@@ -140,8 +142,8 @@ Represents a collection of products a customer is interested in purchasing. Auto
 
 |Field Name|Type|Description|Constraints / Notes|
 |-|-|-|-|
-|`customer`|`Long`|The customer id of the customer whose basket this is|Primary Identifier (same as customer id. A `customer` has only 1 `basket`)|
-|`items`|`HashMap<Long, Item>`|A list of products within the basket|The key is a `product` `id`, the value is an `Item` class. If the quantity of an `Item` in the `HashMap` becomes < 1, its key and value will be removed from the `HashMap`|
+|`customerId`|`Long`|The customer id of the customer whose basket this is|Primary Identifier (same as customer id. A `customer` has only 1 `basket`)|
+|`items`|`HashMap<Long, Item>`|A list of products within the basket|The key is a `productId`, the value is an `Item` class. If the quantity of an `Item` in the `HashMap` becomes < 1, its key and value will be removed from the `HashMap`|
 |`total`|`Double`|The total cost of the items in the basket|Cannot be set manually. The value is derived from the sum of the `Item` `subtotal` values in `items`. This value should be updated automatically if any `subtotal` changes in an `Item` class, or if a `HashMap` entry is deleted within the `items` `HashMap`.|
 
 
@@ -150,7 +152,8 @@ Represents a collection of products a customer is interested in purchasing. Auto
 
 * Total is derived from item subtotals.
 * Removing quantity < 1 removes the item entirely.
-* Updating a product triggers basket item updates via `ProductUpdatedEvent`.
+* Updating a product's name or price triggers basket item updates via `ProductUpdatedEvent`.
+* Placing an order containing basket contents triggers the removal all products from basket, via `BasketUsedForOrderEvent`.
 * Basket total recalculates automatically.
 
 
@@ -159,7 +162,7 @@ Represents a collection of products a customer is interested in purchasing. Auto
 
 * `BasketItemAddedEvent` – emitted when an item is added
 * `BasketItemRemovedEvent` – emitted when an item is removed
-* `BasketRecalculatedEvent` – emitted when an external product update changes basket prices and requires total recalculation; customer item additions and removals are represented by their respective item events
+* `BasketRecalculatedEvent` – emitted when an external product update changes basket items values (may require item subtotal and basket total to be recalculated); customer item additions and removals are represented by their respective item events
 
 
 
@@ -176,7 +179,7 @@ Represents a product within the Items HashMap of a customer's basket. This class
 |Field Name|Type|Description|Constraints / Notes|
 |-|-|-|-|
 |`name`|`String`|The product name|Cannot be set manually. Value derived from `Product` service by the `product` `id` given as the `items` key in a `customer` `basket`. This value should be updated automatically if the `product` `name` is updated.|
-|`price`|`Double`|The price of a single unit of this product|Cannot be set manually. Value derived from `Product` service by the `product` `id` given as the `items` key in a `customer` `basket`. This value should be automatically updated if the `product` `price` is updated|
+|`price`|`Double`|The price of a single unit of this product|Cannot be set manually. Value derived from `Product` service by the `productId` given as the `items` key in a `customer` `basket`. This value should be automatically updated if the `product` `price` is updated|
 |`quantity`|`Int`|The number of units of this product within the basket|required. Positive value > 0. If a `basket` already contains this `product` and a number of this `product` is added to the `basket`, the `quantity` should be incremented by that amount, and similarly if a number of this `product` is removed from the `basket`, the `quantity` should be decremented by that amount. If the resulting `quantity` would become < 1, the corresponding `HashMap` entry will be automatically removed from the `basket`|
 |`subtotal`|`Double`|The total price for the product|Not negative. Cannot be set manually. Value is derived from `unitPrice` \* `quantity`. It should be updated automatically if either `unitPrice` or `quantity` changes.|
 
@@ -190,16 +193,16 @@ The Product Service manages products.
 
 
 
-## 2.2.1 `Product` (Aggregate Root)
+## 2.2.1 `Product` (Entity, Aggregate Root)
 
 Represents a product.
 
 |Field Name|Type|Description|Constraints / Notes|
 |-|-|-|-|
-|`id`|`Long`|Unique product identifier|Primary Identifier|
-|`name`|`String`|Name of the product|Required. If changed, automatically updates all `name` fields in `Item` classes in `Customer` `Basket` `items` whose key matches `id`|
+|`productId`|`Long`|Unique product identifier|Primary Identifier|
+|`name`|`String`|Name of the product|Required. If changed, automatically updates all `name` fields in `Item` classes in `Customer` `Basket` `items` whose key matches `productId`|
 |`category`|`Enum`|The category of products the product is in. Enum (`Electronics`, `Appliances`, `Furniture`, `Kitchen`, `Tools`, `Garden`, `Sports`, `Toys`, `Automotive`, `Pets`, `Apparel`, `Beauty`, `Grocery`, `Media`, `Professional`, `Lifestyle`)|Required|
-|`price`|`Double`|The price for a single unit of the product|Required. If changed, automatically updates all `price` fields in `Item` classes in `Customer` `Basket` `items` whose key matches `id`|
+|`price`|`Double`|The price for a single unit of the product|Required. If changed, automatically updates all `price` fields in `Item` classes in `Customer` `Basket` `items` whose key matches `productId`|
 |`description`|`String`|A brief description of the product|Optional|
 
 
@@ -229,16 +232,16 @@ The Order Service manages orders for products, and the delivery of orders.
 
 
 
-## 2.3.1 `Order` (Aggregate Root)
+## 2.3.1 `Order` (Entity, Aggregate Root)
 
 Represents an order for a selection of products, and tracks the status of the order.
 
 |Field Name|Type|Description|Constraints / Notes|
 |-|-|-|-|
-|`id`|`Long`|Unique order record identifier|Primary Identifier|
-|`customer`|`Long`|Reference to the customer who placed the order|Required. Final.|
-|`address`|`Address`|The delivery address for the order|Optional. If an `address` is not supplied, the `address` of the `customer` will be automatically copied as the `address` for the `Order`. Final|
-|`items`|`HashMap<Long, Item>`|A list of products ordered|Required. Final. The key is a `product` `id`, the value is an `Item` class.|
+|`orderId`|`Long`|Unique order record identifier|Primary Identifier|
+|`customerId`|`Long`|Reference to the customer who placed the order|Required. Final.|
+|`address`|`Address`|The delivery address for the order|Optional. If an `address` is not supplied, the `address` of the `customer` with matching `customerId` will be automatically copied as the `address` for the `Order`. Final|
+|`items`|`HashMap<Long, Item>`|A list of products ordered|Required. Final. The key is a `productId`, the value is an `Item` class.|
 |`total`|`Double`|The total cost of the ordered products|Cannot be set manually. The value is derived from the sum of the `Item` `subtotal` values in `items`. Final|
 |`status`|`Enum`|The status of the order. Enum (`Placed`, `Pending`, `InTransit`, `Delivered`, `Cancelled`)|`Placed` by default|
 
@@ -264,6 +267,7 @@ Represents an order for a selection of products, and tracks the status of the or
 
 * `OrderPlacedEvent` - emitted when an order is created.
 * `OrderStatusChangedEvent` - emitted when an order's status changes.
+* `BasketUsedForOrderEvent` - emitted, in addition to `OrderPlacedEvent`, when an order is created using a customer basket.
 
 
 
@@ -276,7 +280,10 @@ Represents an order for a selection of products, and tracks the status of the or
 
 
 
-**Domain Event:** `OrderCancelledEvent` - emitted when an order is cancelled.
+**Domain Events (examples)**
+
+* `OrderCancelledEvent` - emitted when an order is cancelled.
+* `OrderCancelFailedEvent` - emitted when an order cancellation fails.
 
 
 
@@ -315,7 +322,7 @@ The Notification Service manages notifications to customers.
 
 
 
-## 2.4.1 `Notification` (Aggregate Root)
+## 2.4.1 `Notification` (Entity, Aggregate Root)
 
 Represents a notification to a customer.
 
@@ -325,11 +332,11 @@ Represents a notification to a customer.
 
 |Field Name|Type|Description|Constraints / Notes|
 |-|-|-|-|
-|`id`|`Long`|Unique notification record identifier|Primary Identifier|
-|`customer`|`Long`|Customer receiving the notification|Required|
+|`notificationId`|`Long`|Unique notification record identifier|Primary Identifier|
+|`customerId`|`Long`|Customer receiving the notification|Required|
 |`type`|`Enum`|Method used to deliver the message.|Automatically uses the `contactMethod` of the `customer`|
 |`message`|`String`|The message being delivered to the customer|Required|
-|`sent`|`LocalDateTime`|Date and time when notification was sent|Set on creation|
+|`sentAt`|`LocalDateTime`|Date and time when notification was sent|Set on creation|
 
 \---
 
@@ -343,26 +350,33 @@ Represents a notification to a customer.
 
 Read models are projections updated by domain events.
 
-CustomerView, ProductView, OrderSummaryView, and NotificationView are separate persisted read models updated by projectors.
+CustomerView, ProductView, and OrderSummaryView are separate persisted read models updated by projectors.
+
+
 
 ## 3.1 CustomerView
 
 |Field|Type|
 |-|-|
-|id|Long|
+|customerId|Long|
 |name|String|
 |email|String|
-|phone|Int|
+|phone|String|
+|contactMethod|Enum (Phone, Email)|
 |address|Address|
-|basketTotal|Double|
-
+|basket|Basket|
 
 Owner: Customer aggregate
 
 
+
 Updated by:
 
+* `CustomerCreatedEvent`
 * `CustomerUpdatedEvent`
+* `CustomerDeletedEvent`
+* `BasketItemAddedEvent`
+* `BasketItemRemovedEvent`
 * `BasketRecalculatedEvent`
 
 
@@ -375,18 +389,22 @@ Updated by:
 
 |Field|Type|
 |-|-|
-|id|Long|
+|productId|Long|
 |name|String|
 |category|Enum|
 |price|Double|
 
 
+
 Owner: Product aggregate
+
 
 
 Updated by:
 
+* `ProductCreatedEvent`
 * `ProductUpdatedEvent`
+* `ProductDeletedEvent`
 
 
 
@@ -398,14 +416,18 @@ Updated by:
 
 |Field|Type|
 |-|-|
-|id|Long|
+|orderId|Long|
 |customerId|Long|
+|items|HashMap<Long, Item>|
 |total|Double|
+|address|Address|
 |status|Enum|
 |createdAt|LocalDateTime|
 
 
+
 Owner: Order aggregate
+
 
 
 Updated by:
@@ -420,80 +442,17 @@ Updated by:
 
 
 
-## 3.4 NotificationView
-
-|Field|Type|
-|-|-|
-|id|Long|
-|customerId|Long|
-|message|String|
-|sent|LocalDateTime|
-
-
-
-Updated by:
-
-* `NotificationCreatedEvent`
-
-
-
-\---
-
-
-
 
 
 # 4\. Domain Events
 
 
+
 ## Event Store
 
-Each service owns an append-only event store. Events are never updated or deleted.
+Customer, Product, and Order services own an append-only event store.
+Events are never updated or deleted.
 Aggregate state is rebuilt by replaying events, optionally from snapshots.
-
-## Event Envelope
-
-| Field | Type | Notes |
-|---|---|---|
-| eventId | UUID | Unique and stable event identifier |
-| aggregateType | String | Customer, Product, Order, Notification |
-| aggregateId | Long | Aggregate identifier |
-| aggregateVersion | Long | Monotonically increasing per aggregate |
-| eventType | String | e.g. `OrderPlacedEvent` |
-| occurredAt | Instant | UTC |
-| correlationId | UUID | Links a request/workflow |
-| causationId | UUID | Event or command that caused this event |
-| payload | Object | Versioned event-specific DTO |
-
-### Example Event Definitions
-
-ProductUpdatedEvent
-
-{
-
-eventId: UUID,
-
-eventType: "ProductUpdatedEvent",
-
-aggregateType: "Product",
-
-aggregateVersion: 3,
-
-occurredAt: Instant,
-
-aggregateId: productId,
-
-payload: {
-
-name: "...",
-
-price: ...
-
-}
-
-}
-
-\---
 
 
 
@@ -506,12 +465,14 @@ price: ...
 ## Customer Service
 
 Consumes `product.events`:
-* `ProductUpdatedEvent` → updates basket items
+
+* `ProductUpdatedEvent` → updates basket items if the product's name or price is updated and the product is in the basket.
+* `ProductDeletedEvent` → updates basket items if the deleted product is in the basket.
 
 Consumes `order.events`:
-* `OrderPlacedEvent` → may update customer basket items
 
-- Consumer records processed `eventId` values to prevent duplicate application.
+* `BasketUsedForOrderEvent` → updates basket items.
+* Consumer records processed `eventId` values to prevent duplicate application.
 
 
 
@@ -527,9 +488,8 @@ Consumes:
 
 Consumes `customer.events`:
 
-* `CustomerUpdatedEvent` (optional)
-
-- Consumer records processed `eventId` values to prevent duplicate application.
+* `CustomerUpdatedEvent` (optional).
+* Consumer records processed `eventId` values to prevent duplicate application.
 
 
 
@@ -537,11 +497,10 @@ Consumes `customer.events`:
 
 Consumes `order.events`:
 
-* `OrderPlacedEvent`
-* `OrderCancelledEvent`
-* `OrderStatusChangedEvent`
-
-- Consumer records processed `eventId` values to prevent duplicate application.
+* `OrderPlacedEvent`. → Creates a notification to the customer {customerId} that an order {orderId} has been placed
+* `OrderCancelledEvent`. → Creates a notification to the customer {customerId} that an order {orderId} was cancelled
+* `OrderCancelFailedEvent`. → Creates a notification to the customer {customerId} that an order {orderId} could not be cancelled, and to contact customer support.
+* Consumer records processed `eventId` values to prevent duplicate application.
 
 \---
 
@@ -576,8 +535,4 @@ Example:
 
 
 \*\*End of file\*\*
-
-
-
-
 

@@ -60,18 +60,16 @@ Read projections are eventually consistent with accepted commands. Event-query e
 |Feature|Method|Endpoint Path|Request Body|Response (Success)|Inter-Service REST Dependencies|Description|
 |-|-|-|-|-|-|-|
 |**O1**|`POST`|`/order`|`OrderCreateRequest`|`201 Created` (`OrderResponse`)|**Customer Service:** `GET /customer/{id}`; **Product Service:** `GET /product/{id}`; publishes `OrderPlacedEvent` to `order.events`|Create an order (from basket or explicit product/quantity)|
-|**O1**|`POST`|`/order/{id}/cancel`|*None*|`200 OK` (`OrderResponse`)|publishes `OrderCancelledEvent` to `order.events`|Cancel an order (if status is `Placed` or `Pending`)|
-|**O1**|`GET`|`/order/customer/{customerId}`|*None*|`200 OK` (`Array<OrderResponse>`)|*None*|View all orders for the authenticated customer|
+|**O1**|`POST`|`/order/{id}/cancel`|*None*|`200 OK` (`OrderResponse`)|publishes `OrderCancelledEvent` or `OrderCancelFailedEvent` to `order.events`|Cancel an order (if status is `Placed` or `Pending`)|
+|**O1 / O2**|`GET`|`/order/customer/{customerId}`|*None*|`200 OK` (`Array<OrderResponse>`)|*None*|View all orders by customer id|
 |**O1**|`GET`|`/order/{id}`|*None*|`200 OK` (`OrderResponse`)|*None*|View a specific order by id|
-|**O2**|`GET`|`/order/customer/{customerId}`|*None*|`200 OK` (`Array<OrderResponse>`)|*None*|View all orders by customer id|
 |**O2**|`GET`|`/order/customer/email/{email}`|*None*|`200 OK` (`Array<OrderResponse>`)|**Customer Service:** `GET /customer/email/{email}`|View all orders by customer email|
 |**O2**|`GET`|`/order/customer/phone/{phone}`|*None*|`200 OK` (`Array<OrderResponse>`)|**Customer Service:** `GET /customer/phone/{phone}`|View all orders by customer phone|
 |**O2**|`GET`|`/order/product/{productId}`|*None*|`200 OK` (`Array<OrderResponse>`)|*None*|View all orders containing a product|
 |**O2**|`PUT`|`/order/{id}/status`|`OrderStatusUpdateRequest`|`200 OK` (`OrderResponse`)|publishes `OrderStatusChangedEvent` to `order.events`|Update order status|
 |**O3**|`GET`|`/order/event`|Optional Query params `date`, or `from` and `to`|`200 OK` (`Array<DomainEventEnvelope>`)|*None*|Read all persisted order events, optionally filtered by an inclusive date range|
-|**O1**|`GET`|`/order/customer/{customerId}/event`|Optional Query params `date`, or `from` and `to`|`200 OK` (`Array<DomainEventEnvelope>`)|*None*|Read persisted order events for the authenticated customer|
+|**O1 / O2**|`GET`|`/order/customer/{customerId}/event`|Optional Query params `date`, or `from` and `to`|`200 OK` (`Array<DomainEventEnvelope>`)|*None*|Read persisted order events by customer id|
 |**O1**|`GET`|`/order/{id}/event`|Optional Query params `date`, or `from` and `to`|`200 OK` (`Array<DomainEventEnvelope>`)|*None*|Read persisted order events by aggregate id|
-|**O2**|`GET`|`/order/customer/{customerId}/event`|Optional Query params `date`, or `from` and `to`|`200 OK` (`Array<DomainEventEnvelope>`)|*None*|Read persisted order events by customer id|
 |**O2**|`GET`|`/order/customer/email/{email}/event`|Optional Query params `date`, or `from` and `to`|`200 OK` (`Array<DomainEventEnvelope>`)|**Customer Service:** `GET /customer/email/{email}`|Read persisted order events by customer email|
 |**O2**|`GET`|`/order/customer/phone/{phone}/event`|Optional Query params `date`, or `from` and `to`|`200 OK` (`Array<DomainEventEnvelope>`)|**Customer Service:** `GET /customer/phone/{phone}`|Read persisted order events by customer phone|
 |**O2**|`GET`|`/order/product/{productId}/event`|Optional Query params `date`, or `from` and `to`|`200 OK` (`Array<DomainEventEnvelope>`)|*None*|Read persisted order events by product id|
@@ -90,7 +88,7 @@ Read projections are eventually consistent with accepted commands. Event-query e
 |**N1**|`GET`|`/notification/customer/{customerId}`|Optional Query params `date`, or `from` and `to`|`200 OK` (`Array<NotificationResponse>`)|*None*|View notifications by customer id, with option to filter by date or date range (inclusive)|
 |**N1**|`GET`|`/notification/customer/email/{email}`|Optional Query params `date`, or `from` and `to`|`200 OK` (`Array<NotificationResponse>`)|**Customer Service:** `GET /customer/email/{email}`|View notifications by customer email, with option to filter by date or date range (inclusive)|
 |**N1**|`GET`|`/notification/customer/phone/{phone}`|Optional Query params `date`, or `from` and `to`|`200 OK` (`Array<NotificationResponse>`)|**Customer Service:** `GET /customer/phone/{phone}`|View notifications by customer phone, with option to filter by date or date range (inclusive)|
-|**N1**|`GET`|`/notification`|Optional Query params `date`, or `from` and `to` |`200 OK` (`Array<NotificationResponse>`)|*None*|View all notifications, with option to filter by date or date range (inclusive)|
+|**N1**|`GET`|`/notification`|Optional Query params `date`, or `from` and `to`|`200 OK` (`Array<NotificationResponse>`)|*None*|View all notifications, with option to filter by date or date range (inclusive)|
 |**N1**|`GET`|`/notification/date/{date}`|*None*|`200 OK` (`Array<NotificationResponse>`)|*None*|View notifications issued on a date|
 |**N1**|`GET`|`/notification/date-range`|Required query params `from`, `to`|`200 OK` (`Array<NotificationResponse>`)|*None*|View notifications issued within an inclusive date range|
 |**N1**|`GET`|`/notification/{id}`|*None*|`200 OK` (`NotificationResponse`)|*None*|View a notification by id|

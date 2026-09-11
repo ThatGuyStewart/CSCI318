@@ -15,8 +15,7 @@ public class CustomerCreateRequest {
     @NotBlank
     private String phone;
 
-    @NotNull
-    private ContactMethod contactMethod;
+    private ContactMethod contactMethod = ContactMethod.Email;
 
     @NotNull
     @Valid
@@ -62,7 +61,7 @@ public class CustomerCreateRequest {
     }
 
     public void setContactMethod(ContactMethod contactMethod) {
-        this.contactMethod = contactMethod;
+        this.contactMethod = contactMethod != null ? contactMethod : ContactMethod.Email;
     }
 
     public AddressDto getAddress() {

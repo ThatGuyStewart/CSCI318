@@ -10,7 +10,8 @@ public class Order {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "order_id")
+    private Long orderId;
 
     @Column(nullable = false)
     private Long customerId;
@@ -42,12 +43,12 @@ public class Order {
         this.status = status != null ? status : OrderStatus.Placed;
     }
 
-    public Long getId() {
-        return id;
+    public Long getOrderId() {
+        return orderId;
     }
 
-    public void setId(Long id) {
-        this.id = id;
+    public void setOrderId(Long orderId) {
+        this.orderId = orderId;
     }
 
     public Long getCustomerId() {

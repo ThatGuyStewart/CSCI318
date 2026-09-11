@@ -89,7 +89,7 @@
 * **As an** Administrator, **I want to** retrieve a list of all events for a particular product
 * **As an** Administrator, **I want to** retrieve a list of all product events between two dates
 * **As an** Administrator, **I want to** retrieve a list of all events for a particular product between two dates
-
+* **As an** Administrator, **I want to** retrieve a list of all events for products within a particular category
 
 
 

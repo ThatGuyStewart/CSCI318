@@ -3,7 +3,7 @@ package com.retail.customer.dto;
 import com.retail.customer.domain.ContactMethod;
 
 public class CustomerResponse {
-    private Long id;
+    private Long customerId;
     private String name;
     private String email;
     private String phone;
@@ -13,8 +13,8 @@ public class CustomerResponse {
     public CustomerResponse() {
     }
 
-    public CustomerResponse(Long id, String name, String email, String phone, ContactMethod contactMethod, AddressDto address) {
-        this.id = id;
+    public CustomerResponse(Long customerId, String name, String email, String phone, ContactMethod contactMethod, AddressDto address) {
+        this.customerId = customerId;
         this.name = name;
         this.email = email;
         this.phone = phone;
@@ -22,12 +22,12 @@ public class CustomerResponse {
         this.address = address;
     }
 
-    public Long getId() {
-        return id;
+    public Long getCustomerId() {
+        return customerId;
     }
 
-    public void setId(Long id) {
-        this.id = id;
+    public void setCustomerId(Long customerId) {
+        this.customerId = customerId;
     }
 
     public String getName() {

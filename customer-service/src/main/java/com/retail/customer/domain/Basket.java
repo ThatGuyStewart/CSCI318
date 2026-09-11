@@ -10,6 +10,7 @@ import java.util.Optional;
 public class Basket {
 
     @Id
+    @Column(name = "customer_id")
     private Long customerId;
 
     @ElementCollection(fetch = FetchType.EAGER)

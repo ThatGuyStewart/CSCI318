@@ -33,7 +33,7 @@ public class OrderEventConsumer {
     @KafkaListener(topics = "${retail.events.order-topic}", groupId = "${retail.events.consumer.group-id}")
     @Transactional
     public void onOrderEvent(DomainEventMessage event) {
-        if (!"OrderPlacedEvent".equals(event.eventType())
+        if (!"BasketUsedForOrderEvent".equals(event.eventType())
                 || processedOrderEventRepository.existsById(event.eventId())) {
             return;
         }

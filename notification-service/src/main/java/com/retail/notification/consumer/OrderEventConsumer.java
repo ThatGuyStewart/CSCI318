@@ -19,7 +19,7 @@ import com.retail.notification.service.NotificationService;
 public class OrderEventConsumer {
 
     private static final Set<String> NOTIFIABLE_EVENT_TYPES = Set.of(
-            "OrderPlacedEvent", "OrderCancelledEvent", "OrderStatusChangedEvent");
+            "OrderPlacedEvent", "OrderCancelledEvent", "OrderCancelFailedEvent");
     private static final String ORDER_MESSAGE_PREFIX = "Your order #";
 
     private final ProcessedOrderEventRepository processedOrderEventRepository;
@@ -47,14 +47,15 @@ public class OrderEventConsumer {
 
         processedOrderEventRepository.save(new ProcessedOrderEvent(event.eventId()));
         notificationService.createNotificationForCustomerId(customerId,
-                new NotificationCreateRequest(messageFor(event.eventType(), orderId, event.payload().get("status"))));
+                new NotificationCreateRequest(messageFor(event.eventType(), orderId)));
     }
 
-    private String messageFor(String eventType, Long orderId, Object status) {
+    private String messageFor(String eventType, Long orderId) {
         return switch (eventType) {
             case "OrderPlacedEvent" -> ORDER_MESSAGE_PREFIX + orderId + " has been placed.";
             case "OrderCancelledEvent" -> ORDER_MESSAGE_PREFIX + orderId + " has been cancelled.";
-            case "OrderStatusChangedEvent" -> ORDER_MESSAGE_PREFIX + orderId + " status has changed to " + status + ".";
+            case "OrderCancelFailedEvent" -> ORDER_MESSAGE_PREFIX + orderId
+                    + " could not be cancelled. Please contact customer service for assistance.";
             default -> throw new IllegalArgumentException("Unsupported order event type: " + eventType);
         };
     }

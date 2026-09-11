@@ -219,7 +219,7 @@ public class ProductService {
         try {
             Map<String, Object> payload = productPayload(product);
             ProductDomainEvent event = new ProductDomainEvent(UUID.randomUUID(), PRODUCT_AGGREGATE_TYPE,
-                    product.getId(), product.getCategory(), product.getAggregateVersion(), eventType, Instant.now(), null, null,
+                    product.getProductId(), product.getCategory(), product.getAggregateVersion(), eventType, Instant.now(), null, null,
                     objectMapper.writeValueAsString(payload));
             productDomainEventRepository.save(event);
             domainEventPublisher.publish(eventTopic, new DomainEventMessage(event.getEventId(), event.getAggregateType(),
@@ -233,13 +233,13 @@ public class ProductService {
     private void initializeAggregateVersion(Product product) {
         if (!product.hasAggregateVersion()) {
             product.initializeAggregateVersion(productDomainEventRepository.findMaxAggregateVersion(
-                    PRODUCT_AGGREGATE_TYPE, product.getId()));
+                    PRODUCT_AGGREGATE_TYPE, product.getProductId()));
         }
     }
 
     private Map<String, Object> productPayload(Product product) {
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("productId", product.getId());
+        payload.put("productId", product.getProductId());
         payload.put("name", product.getName());
         payload.put("category", product.getCategory());
         payload.put("price", product.getPrice());
@@ -248,7 +248,7 @@ public class ProductService {
     }
 
     private void upsertProductView(Product product) {
-        productViewRepository.save(new ProductView(product.getId(), product.getName(), product.getCategory(),
+        productViewRepository.save(new ProductView(product.getProductId(), product.getName(), product.getCategory(),
                 product.getPrice(), product.getDescription()));
     }
 
@@ -274,7 +274,7 @@ public class ProductService {
     public ProductResponse toProductResponse(Product product) {
         Product resolvedProduct = Objects.requireNonNull(product, "Product cannot be null");
         return new ProductResponse(
-                resolvedProduct.getId(),
+                resolvedProduct.getProductId(),
                 resolvedProduct.getName(),
                 resolvedProduct.getCategory(),
                 resolvedProduct.getPrice(),
@@ -283,7 +283,7 @@ public class ProductService {
     }
 
     public ProductResponse toProductResponse(ProductView product) {
-        return new ProductResponse(product.getId(), product.getName(), product.getCategory(), product.getPrice(),
+        return new ProductResponse(product.getProductId(), product.getName(), product.getCategory(), product.getPrice(),
                 product.getDescription());
     }
 }
