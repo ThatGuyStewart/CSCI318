@@ -1,9 +1,17 @@
 package com.retail.product.domain;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 @Entity
-@Table(name = "products")
+@Table(name = "products", uniqueConstraints = @UniqueConstraint(name = "uk_products_name", columnNames = "name"))
 public class Product {
 
     @Id

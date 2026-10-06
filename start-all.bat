@@ -10,6 +10,18 @@ if errorlevel 1 (
 	exit /b 1
 )
 
+call :checkKafkaRunning
+if not errorlevel 1 (
+	echo Kafka is already running on port 9092. Reusing the existing broker.
+	goto :kafkaReady
+)
+
+call :ensureServicePort9092Free
+if errorlevel 1 (
+	pause
+	exit /b 1
+)
+
 call :ensureDocker
 if errorlevel 1 (
 	pause
@@ -30,6 +42,7 @@ if errorlevel 1 (
 	exit /b 1
 )
 
+:kafkaReady
 echo Preparing shared Maven dependencies...
 call mvn.cmd -pl retail-common -am install -DskipTests
 if errorlevel 1 (
@@ -96,7 +109,7 @@ goto waitForDocker
 echo Waiting for Kafka to become ready...
 set /a kafkaAttempts=0
 :waitForKafkaLoop
-docker compose -f "%~dp0kafka-compose.yml" exec -T kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >nul 2>&1
+call :checkKafkaRunning
 if not errorlevel 1 exit /b 0
 set /a kafkaAttempts+=1
 if %kafkaAttempts% GEQ 30 (
@@ -106,16 +119,24 @@ if %kafkaAttempts% GEQ 30 (
 timeout /t 2 /nobreak >nul
 goto waitForKafkaLoop
 
+:checkKafkaRunning
+docker compose -f "%~dp0kafka-compose.yml" exec -T kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >nul 2>&1
+exit /b %errorlevel%
+
 :ensureServicePortsAvailable
-for %%P in (8081 8082 8083 8084 9092) do (
+for %%P in (8081 8082 8083 8084) do (
 	netstat -aon | findstr ":%%P " | findstr "LISTENING" >nul
 	if not errorlevel 1 (
-		if "%%P"=="9092" (
-			echo Kafka port 9092 is already in use. Stop the existing broker or free the port before starting the platform.
-			exit /b 1
-		)
 		echo Port %%P is already in use. Run stop-all.bat before starting the platform.
 		exit /b 1
 	)
+)
+exit /b 0
+
+:ensureServicePort9092Free
+netstat -aon | findstr ":9092 " | findstr "LISTENING" >nul
+if not errorlevel 1 (
+	echo Port 9092 is in use but is not a responsive Kafka broker. Stop the process using that port before starting the platform.
+	exit /b 1
 )
 exit /b 0

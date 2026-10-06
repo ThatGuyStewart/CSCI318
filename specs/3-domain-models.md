@@ -200,7 +200,7 @@ Represents a product.
 |Field Name|Type|Description|Constraints / Notes|
 |-|-|-|-|
 |`productId`|`Long`|Unique product identifier|Primary Identifier|
-|`name`|`String`|Name of the product|Required. If changed, automatically updates all `name` fields in `Item` classes in `Customer` `Basket` `items` whose key matches `productId`|
+|`name`|`String`|Name of the product|Required. Unique. If changed, automatically updates all `name` fields in `Item` classes in `Customer` `Basket` `items` whose key matches `productId`|
 |`category`|`Enum`|The category of products the product is in. Enum (`Electronics`, `Appliances`, `Furniture`, `Kitchen`, `Tools`, `Garden`, `Sports`, `Toys`, `Automotive`, `Pets`, `Apparel`, `Beauty`, `Grocery`, `Media`, `Professional`, `Lifestyle`)|Required|
 |`price`|`Double`|The price for a single unit of the product|Required. If changed, automatically updates all `price` fields in `Item` classes in `Customer` `Basket` `items` whose key matches `productId`|
 |`description`|`String`|A brief description of the product|Optional|

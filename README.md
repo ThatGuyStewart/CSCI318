@@ -36,7 +36,7 @@ Install these before starting the platform:
     ```
 
 4. The launcher starts Kafka at `localhost:9092`, installs the shared Maven module, and opens the four services on ports `8081` through `8084`.
-5. Seed example data after the services finish starting:
+5. Seed example data after the services finish starting (first run only, as data persists between runs):
     ```bat
     populate-data.bat
     ```
@@ -45,6 +45,7 @@ Install these before starting the platform:
     docker compose -f kafka-compose.yml down
     ```
 
+7. If curl commands fail with an Invoke-WebRequest error, run "Remove-item alias:curl" in the command prompt to remove the Invoke-WebRequest CmdLet's curl alias.
 ---
 
 ## Table of Contents
@@ -264,7 +265,7 @@ mvn -pl notification-service spring-boot:run
 
 ### Seeding Test Data
 
-After all services are running, populate sample data using:
+On the first run, after all services are running, populate sample data using:
 
 ```powershell
 # PowerShell
@@ -397,6 +398,175 @@ Tests use `MockMvc` and `@SpringBootTest` with an in-memory H2 database, coverin
 ---
 
 ## Inter-Service Dependencies
+
+## Complete Setup & Dependencies (Detailed)
+
+This section lists every dependency, installation steps, environment variables, and verification commands required to run the project end-to-end on a developer machine.
+
+1) System prerequisites
+    - Git (optional but recommended): install from https://git-scm.com/
+    - Java Development Kit (JDK) 21 or later
+        - Install OpenJDK 21 (Adoptium/Temurin or your provider of choice)
+        - Verify: `java -version` should print a version >= 21
+    - Apache Maven 3.8+ (CLI)
+        - Install from https://maven.apache.org/
+        - Verify: `mvn -version`
+    - Docker Desktop (Windows/macOS) or Docker Engine + Docker Compose (Linux)
+        - Required to run Kafka and other infra used by the start scripts
+        - Verify: `docker info` and `docker compose version`
+
+2) Kafka and infrastructure
+    - The repository includes `kafka-compose.yml` (root) that launches a local Kafka, Zookeeper, and any required connectors for development.
+    - To start Kafka only (manual):
+
+```bash
+docker compose -f kafka-compose.yml up -d
+```
+
+    - To stop and remove the stack:
+
+```bash
+docker compose -f kafka-compose.yml down
+```
+
+3) LLM / Agent (optional runtime features)
+    - The project supports an agentic recommendation component that can use local or remote LLMs/embedding models.
+    - Environment variables (examples):
+        - `AI_MODEL_PROVIDER` = `gemini` | `ollama` | `openai` | `local` (provider-specific)
+        - `AI_MODEL_API_KEY` = provider API key (if required)
+        - `ai.model.temperature` = e.g. `0.0`–`1.0` (defaults can be set in application properties)
+        - `ai.model.max-output-tokens` = integer
+    - If you do not want agent features, disable them in the Product Service application properties:
+        - `retail.ai.recommendation.enabled=false`
+
+4) Build and run (full project)
+    - From project root, build everything with Maven (parallel threads recommended):
+
+```bash
+mvn -T 1C clean package
+```
+
+    - Start infra (Kafka) first, then start services using the provided scripts:
+
+Windows (PowerShell)
+```powershell
+docker compose -f kafka-compose.yml up -d
+.\start-all.ps1
+```
+
+Windows (Command Prompt)
+```bat
+docker compose -f kafka-compose.yml up -d
+start-all.bat
+```
+
+macOS / Linux
+```bash
+docker compose -f kafka-compose.yml up -d
+./start-all.sh
+```
+
+5) Run a single service locally (useful for debugging)
+    - Example: run only `product-service` in the current shell (hot reload with `spring-boot:run`):
+
+```bash
+cd product-service
+mvn spring-boot:run
+```
+
+6) Seed test data
+    - Use the provided scripts after services are started. These scripts perform REST calls to populate sample customers, products and orders.
+
+Windows (PowerShell)
+```powershell
+.\populate-data.ps1
+```
+
+Windows (Command Prompt)
+```bat
+populate-data.bat
+```
+
+7) Verify Kafka topics and messages
+    - Show topics (requires Kafka CLI or kafkacat / kafka-topics container):
+
+```bash
+docker exec -it <kafka_container_name> kafka-topics --bootstrap-server localhost:9092 --list
+```
+
+    - Consume messages for troubleshooting (quick check):
+
+```bash
+docker exec -it <kafka_container_name> kafka-console-consumer --bootstrap-server localhost:9092 --topic orders --from-beginning --max-messages 10
+```
+
+8) Environment / application properties
+    - The services use Spring Boot externalized configuration. Typical mechanisms:
+        - `application.properties` / `application.yml` in `src/main/resources`
+        - Environment variables (`SPRING_DATASOURCE_URL`, `AI_MODEL_API_KEY`, etc.)
+        - Command-line system properties (`-Dai.model.temperature=0.2`)
+
+    - Common properties you may set:
+        - `spring.datasource.url` (JDBC if using external DB)
+        - `spring.kafka.bootstrap-servers=localhost:9092`
+        - `retail.ai.recommendation.enabled=true|false`
+
+9) Running tests
+    - Run everything:
+
+```bash
+mvn clean test
+```
+
+    - Run module-specific tests:
+
+```bash
+mvn -pl product-service test
+```
+
+10) Export report to PDF (optional)
+    - If you have `pandoc` installed and on PATH, convert the generated `CSCI318-report.md` to PDF:
+
+```bash
+pandoc CSCI318-report.md -o CSCI318-report.pdf --from markdown+yaml_metadata_block -V geometry:margin=1in
+```
+
+11) Troubleshooting
+    - If a service won't start, check logs in the service `target` or console where `spring-boot:run` is executed.
+    - Common issues:
+        - Port already in use: change `server.port` in `application.properties`.
+        - Kafka not available: confirm Docker compose stack is running and `localhost:9092` is reachable.
+        - LLM/embedding provider errors: ensure provider environment variables are set or disable the agent feature.
+	- Invoke-WebRequest errors when running curl commands: Run "Remove-item alias:curl" in the command prompt to remove the Invoke-WebRequest CmdLet's curl alias.
+
+12) Security & production notes
+    - For production use, replace in-memory H2 with a production rdbms (Postgres, MySQL). Update `spring.datasource.*` accordingly.
+    - Secure Kafka with TLS/SASL in production and configure appropriate credentials.
+    - Secure REST endpoints with OAuth2/JWT (currently not enabled by default for dev).
+
+
+## AI, Logging & Embeddings (Operational Notes)
+
+- AI recommendation feature: enabled by property `retail.ai.recommendation.enabled` (default true in development). To disable AI recommendations set the property to `false` (for example in `application.properties` or via an environment-specific profile).
+- Model-content logging is disabled by default to avoid leaking prompts or PII. Two opt-in runtime flags exist:
+    - `product.recommendation.logRawReplies` — when `true` enables debug logging of raw model replies emitted by the recommendation controller (default: `false`). Use only for local debugging and never enable in production.
+    - `product.recommendation.logModelContent` — when `true` enables debug logging of model request/response content emitted by internal model listeners (default: `false`). Use only for local development.
+- The default logging level for the LangChain4j internals (`dev.langchain4j`) has been lowered to `INFO` to avoid inadvertently logging prompts/tool calls. Enable DEBUG explicitly in local/dev environments only, e.g. set `logging.level.dev.langchain4j=DEBUG` in a non-production profile.
+- To enable the opt-in debug logging at JVM launch, pass system properties, for example:
+
+```
+# To run product-service with raw reply debug logging and model content debug logging (run from project root):
+mvn -pl product-service spring-boot:run -Dspring-boot.run.jvmArguments="-Dproduct.recommendation.logRawReplies=true -Dproduct.recommendation.logModelContent=true -Dlogging.level.com.retail.product=DEBUG"
+```
+
+- Embedding store updates: the product service attempts a best-effort removal of any existing embedding entry for the same `productId` before adding a fresh embedding (reflection-based to remain compatible with multiple embedding-store APIs). Embedding/model invocation failures are non-fatal and logged at DEBUG with the exception type (no prompt/content is logged).
+- Tests: new integration tests were added for recommendation behaviour (see `src/test/java/com/retail/product/RecommendationAgentControllerIntegrationTest.java`). The product service tests run against an in-memory H2 database. To run only the product-service tests:
+
+```
+mvn -pl product-service clean test
+```
+
+Use these notes when debugging AI/model related issues and ensure debug logging and any content logging flags are only enabled in safe, non-production environments.
 
 ```
 Order Service       ────► Customer Service

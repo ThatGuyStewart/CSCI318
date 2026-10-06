@@ -34,14 +34,12 @@ wait_for_kafka() {
 	return 1
 }
 
-for port in 8081 8082 8083 8084 9092; do
+KAFKA_COMPOSE_FILE="$(dirname "$0")/kafka-compose.yml"
+
+for port in 8081 8082 8083 8084; do
 	is_port_in_use "$port"
 	port_check_status=$?
 	if [ "$port_check_status" -eq 0 ]; then
-		if [ "$port" -eq 9092 ]; then
-			echo "Kafka port 9092 is already in use. Stop the existing broker or free the port before starting the platform."
-			exit 1
-		fi
 		echo "Port $port is already in use. Run ./stop-all.sh before starting the platform."
 		exit 1
 	elif [ "$port_check_status" -eq 2 ]; then
@@ -49,16 +47,29 @@ for port in 8081 8082 8083 8084 9092; do
 	fi
 done
 
-if ! docker info >/dev/null 2>&1; then
-	echo "Docker is not running. Start Docker Desktop (or the Docker daemon) and try again."
-	exit 1
-fi
+if docker compose -f "$KAFKA_COMPOSE_FILE" exec -T kafka \
+	/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1; then
+	echo "Kafka is already running on port 9092. Reusing the existing broker."
+else
+	is_port_in_use 9092
+	port_check_status=$?
+	if [ "$port_check_status" -eq 0 ]; then
+		echo "Port 9092 is in use but is not a responsive Kafka broker. Stop the process using that port before starting the platform."
+		exit 1
+	elif [ "$port_check_status" -eq 2 ]; then
+		exit 1
+	fi
 
-echo "Starting Kafka on port 9092..."
-KAFKA_COMPOSE_FILE="$(dirname "$0")/kafka-compose.yml"
-docker compose -f "$KAFKA_COMPOSE_FILE" up -d || exit 1
-echo "Waiting for Kafka to become ready..."
-wait_for_kafka "$KAFKA_COMPOSE_FILE" || exit 1
+	if ! docker info >/dev/null 2>&1; then
+		echo "Docker is not running. Start Docker Desktop (or the Docker daemon) and try again."
+		exit 1
+	fi
+
+	echo "Starting Kafka on port 9092..."
+	docker compose -f "$KAFKA_COMPOSE_FILE" up -d || exit 1
+	echo "Waiting for Kafka to become ready..."
+	wait_for_kafka "$KAFKA_COMPOSE_FILE" || exit 1
+fi
 
 echo "Preparing shared Maven dependencies..."
 mvn -pl retail-common -am install -DskipTests || exit 1

@@ -1,11 +1,12 @@
 package com.retail.product.exception;
 
-import com.retail.product.dto.ErrorResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import com.retail.product.dto.ErrorResponse;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -22,6 +23,12 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ErrorResponse> handleConflict(ConflictException ex) {
+        ErrorResponse error = new ErrorResponse("CONFLICT", ex.getMessage());
+        return new ResponseEntity<>(error, HttpStatus.CONFLICT);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationErrors(MethodArgumentNotValidException ex) {
         String errorMessage = ex.getBindingResult().getFieldErrors().stream()
@@ -29,6 +36,12 @@ public class GlobalExceptionHandler {
                 .reduce((m1, m2) -> m1 + "; " + m2)
                 .orElse("Validation failed");
         ErrorResponse error = new ErrorResponse("BAD_REQUEST", errorMessage);
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(org.springframework.web.bind.MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingParam(org.springframework.web.bind.MissingServletRequestParameterException ex) {
+        ErrorResponse error = new ErrorResponse("BAD_REQUEST", ex.getMessage());
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 

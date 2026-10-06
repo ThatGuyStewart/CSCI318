@@ -11,7 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-final class OutboxEventDispatcher {
+// non-final so Spring/CGLIB can create the @Transactional proxy
+class OutboxEventDispatcher {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OutboxEventDispatcher.class);
 

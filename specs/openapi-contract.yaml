@@ -650,6 +650,43 @@ paths:
               items:
                 $ref: '#/components/schemas/ProductResponse'
 
+/product/recommendation:
+  get:
+    tags: \[Product Service]
+    summary: Get AI product recommendations
+    operationId: getProductRecommendations
+    parameters:
+      - in: query
+        name: sessionId
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Optional conversation session ID. A new ID is returned when omitted.
+      - in: query
+        name: message
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        description: Natural-language product recommendation request.
+    responses:
+      '200':
+        description: Product recommendations or a clarification request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecommendationResponse'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '503':
+        description: AI recommendation service is unavailable
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+
 /product/event:
   get:
     tags: \[Product Service, Events]
@@ -1809,6 +1846,39 @@ schemas:
           productId:
             type: integer
             format: int64
+
+  RecommendationRequest:
+    type: object
+    required:
+      - message
+    properties:
+      sessionId:
+        type: string
+        format: uuid
+        nullable: true
+      message:
+        type: string
+        minLength: 1
+        maxLength: 1000
+
+  RecommendationResponse:
+    type: object
+    required:
+      - sessionId
+      - message
+      - products
+    properties:
+      sessionId:
+        type: string
+        format: uuid
+      message:
+        type: string
+      products:
+        type: array
+        maxItems: 5
+        items:
+          $ref: '#/components/schemas/ProductResponse'
+
 
   # -------------------------
   # Order

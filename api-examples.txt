@@ -19,7 +19,7 @@ POST http://localhost:8081/customer
 Content-Type: application/json
 
 cURL:
-curl -X POST http://localhost:8081/customer -H "Content-Type: application/json" -d '{"name": "John Doe", "email": "john.doe@example.com", "phone": "0412345678", "contactMethod": "Email", "address": {"unitNumber": 12, "streetNumber": 100, "street": "George St", "suburb": "Sydney CBD", "city": "Sydney", "postcode": 2000, "state": "NSW", "country": "Australia"}}'
+curl -X POST http://localhost:8081/customer -H "Content-Type: application/json" -d '{\"name\": \"John Doe\", \"email\": \"john.doe@example.com\", \"phone\": \"0412345678\", \"contactMethod\": \"Email\", \"address\": {\"unitNumber\": 12, \"streetNumber\": 100, \"street\": \"George St\", \"suburb\": \"Sydney CBD\", \"city\": \"Sydney\", \"postcode\": 2000, \"state\": \"NSW\", \"country\": \"Australia\"}}'
 
 PowerShell:
 Invoke-RestMethod -Uri "http://localhost:8081/customer" -Method POST -ContentType "application/json" -Body '{"name":"John Doe","email":"john.doe@example.com","phone":"0412345678","contactMethod":"Email","address":{"unitNumber":12,"streetNumber":100,"street":"George St","suburb":"Sydney CBD","city":"Sydney","postcode":2000,"state":"NSW","country":"Australia"}}'
@@ -75,7 +75,7 @@ PUT http://localhost:8081/customer/1
 Content-Type: application/json
 
 cURL:
-curl -X PUT http://localhost:8081/customer/1 -H "Content-Type: application/json" -d '{"name": "Johnathan Doe", "contactMethod": "Phone"}'
+curl -X PUT http://localhost:8081/customer/1 -H "Content-Type: application/json" -d '{\"name\": \"Johnathan Doe\", \"contactMethod\": \"Phone\"}'
 
 PowerShell:
 Invoke-RestMethod -Uri "http://localhost:8081/customer/1" -Method PUT -ContentType "application/json" -Body '{"name":"Johnathan Doe","contactMethod":"Phone"}'
@@ -87,7 +87,7 @@ PUT http://localhost:8081/customer/1/address
 Content-Type: application/json
 
 cURL:
-curl -X PUT http://localhost:8081/customer/1/address -H "Content-Type: application/json" -d '{"unitNumber": 5, "streetNumber": 200, "street": "Pitt St", "suburb": "Sydney CBD", "city": "Sydney", "postcode": 2000, "state": "NSW", "country": "Australia"}'
+curl -X PUT http://localhost:8081/customer/1/address -H "Content-Type: application/json" -d '{\"unitNumber\": 5, \"streetNumber\": 200, \"street\": \"Pitt St\", \"suburb\": \"Sydney CBD\", \"city\": \"Sydney\", \"postcode\": 2000, \"state\": \"NSW\", \"country\": \"Australia\"}'
 
 PowerShell:
 Invoke-RestMethod -Uri "http://localhost:8081/customer/1/address" -Method PUT -ContentType "application/json" -Body '{"unitNumber":5,"streetNumber":200,"street":"Pitt St","suburb":"Sydney CBD","city":"Sydney","postcode":2000,"state":"NSW","country":"Australia"}'
@@ -110,7 +110,7 @@ POST http://localhost:8081/customer/1/basket
 Content-Type: application/json
 
 cURL:
-curl -X POST http://localhost:8081/customer/1/basket -H "Content-Type: application/json" -d '{"productId": 1, "quantity": 2}'
+curl -X POST http://localhost:8081/customer/1/basket -H "Content-Type: application/json" -d '{\"productId\": 1, \"quantity\": 2}'
 
 PowerShell:
 Invoke-RestMethod -Uri "http://localhost:8081/customer/1/basket" -Method POST -ContentType "application/json" -Body '{"productId":1,"quantity":2}'
@@ -122,7 +122,7 @@ DELETE http://localhost:8081/customer/1/basket
 Content-Type: application/json
 
 cURL:
-curl -X DELETE http://localhost:8081/customer/1/basket -H "Content-Type: application/json" -d '{"productId": 1, "quantity": 1}'
+curl -X DELETE http://localhost:8081/customer/1/basket -H "Content-Type: application/json" -d '{\"productId\": 1, \"quantity\": 1}'
 
 PowerShell:
 Invoke-RestMethod -Uri "http://localhost:8081/customer/1/basket" -Method DELETE -ContentType "application/json" -Body '{"productId":1,"quantity":1}'
@@ -176,7 +176,7 @@ Allowed categories: [Electronics, Appliances, Furniture, Kitchen, Tools, Garden,
                     Media, Professional, Lifestyle]
 
 cURL:
-curl -X POST http://localhost:8082/product -H "Content-Type: application/json" -d '{"name": "Wireless Noise Cancelling Headphones", "category": "Electronics", "price": 299.99, "description": "Premium Bluetooth over-ear headphones with ANC." }'
+curl -X POST http://localhost:8082/product -H "Content-Type: application/json" -d '{\"name\": \"Wireless Noise Cancelling Headphones\", \"category\": \"Electronics\", \"price\": 299.99, \"description\": \"Premium Bluetooth over-ear headphones with ANC.\" }'
 
 PowerShell:
 Invoke-RestMethod -Uri "http://localhost:8082/product" -Method POST -ContentType "application/json" -Body '{"name":"Wireless Noise Cancelling Headphones","category":"Electronics","price":299.99,"description":"Premium Bluetooth over-ear headphones with ANC."}'
@@ -210,7 +210,7 @@ PUT http://localhost:8082/product/1
 Content-Type: application/json
 
 cURL:
-curl -X PUT http://localhost:8082/product/1 -H "Content-Type: application/json" -d '{"price": 249.99, "description": "On Sale: Premium Bluetooth headphones with ANC."}'
+curl -X PUT http://localhost:8082/product/1 -H "Content-Type: application/json" -d '{\"price\": 249.99, \"description\": \"On Sale: Premium Bluetooth headphones with ANC.\"}'
 
 PowerShell:
 Invoke-RestMethod -Uri "http://localhost:8082/product/1" -Method PUT -ContentType "application/json" -Body '{"price":249.99,"description":"On Sale: Premium Bluetooth headphones with ANC."}'
@@ -260,7 +260,18 @@ PowerShell:
 Invoke-RestMethod -Uri "http://localhost:8082/product/event?from=2026-08-01&to=2026-08-31" -Method GET
 
 --------------------------------------------------------------------------------
-2.9 Get Product Events by Category (Feature P3)
+2.9 Get Product Events by ID (Feature P3)
+--------------------------------------------------------------------------------
+GET http://localhost:8082/product/1/event
+
+cURL:
+curl -X GET "http://localhost:8082/product/1/event?date=2026-08-27"
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8082/product/1/event?date=2026-08-27" -Method GET
+
+--------------------------------------------------------------------------------
+2.10 Get Product Events by Category (Feature P3)
 --------------------------------------------------------------------------------
 GET http://localhost:8082/product/category/Electronics/event
 
@@ -269,6 +280,25 @@ curl -X GET "http://localhost:8082/product/category/Electronics/event?date=2026-
 
 PowerShell:
 Invoke-RestMethod -Uri "http://localhost:8082/product/category/Electronics/event?date=2026-08-27" -Method GET
+
+--------------------------------------------------------------------------------
+2.11 Get AI Product Recommendations
+(AI must be enabled via retail.ai.recommendation.enabled and a chat model provider configured; otherwise returns 503)
+--------------------------------------------------------------------------------
+GET http://localhost:8082/product/recommendation?message=I need a gift for a keen home cook
+
+cURL:
+curl -X GET "http://localhost:8082/product/recommendation?message=I+need+a+gift+for+a+keen+home+cook"
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8082/product/recommendation?message=I+need+a+gift+for+a+keen+home+cook" -Method GET
+
+With an existing session ID (to continue a conversation):
+cURL:
+curl -X GET "http://localhost:8082/product/recommendation?sessionId=SESSION-UUID&message=Something+cheaper+please"
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8082/product/recommendation?sessionId=SESSION-UUID&message=Something+cheaper+please" -Method GET
 
 
 ================================================================================
@@ -282,7 +312,7 @@ POST http://localhost:8083/order
 Content-Type: application/json
 
 cURL:
-curl -X POST http://localhost:8083/order -H "Content-Type: application/json" -d '{"customerId": 1, "items": [{"productId": 1, "quantity": 2}]}'
+curl -X POST http://localhost:8083/order -H "Content-Type: application/json" -d '{\"customerId\": 1, \"items\": [{\"productId\": 1, \"quantity\": 2}]}'
 
 PowerShell:
 Invoke-RestMethod -Uri "http://localhost:8083/order" -Method POST -ContentType "application/json" -Body '{"customerId":1,"items":[{"productId":1,"quantity":2}]}'
@@ -295,7 +325,7 @@ POST http://localhost:8083/order
 Content-Type: application/json
 
 cURL:
-curl -X POST http://localhost:8083/order -H "Content-Type: application/json" -d '{"customerId": 1}'
+curl -X POST http://localhost:8083/order -H "Content-Type: application/json" -d '{\"customerId\": 1}'
 
 PowerShell:
 Invoke-RestMethod -Uri "http://localhost:8083/order" -Method POST -ContentType "application/json" -Body '{"customerId":1}'
@@ -375,7 +405,7 @@ PUT http://localhost:8083/order/1/status
 Content-Type: application/json
 
 cURL:
-curl -X PUT http://localhost:8083/order/1/status -H "Content-Type: application/json" -d '{"status": "InTransit"}'
+curl -X PUT http://localhost:8083/order/1/status -H "Content-Type: application/json" -d '{\"status\": \"InTransit\"}'
 
 PowerShell:
 Invoke-RestMethod -Uri "http://localhost:8083/order/1/status" -Method PUT -ContentType "application/json" -Body '{"status":"InTransit"}'
@@ -402,6 +432,39 @@ curl -X GET "http://localhost:8083/order/1/event?date=2026-08-27"
 PowerShell:
 Invoke-RestMethod -Uri "http://localhost:8083/order/1/event?date=2026-08-27" -Method GET
 
+--------------------------------------------------------------------------------
+3.12 Get Order Events by Customer Email (Feature O1 / O2)
+--------------------------------------------------------------------------------
+GET http://localhost:8083/order/customer/email/john.doe@example.com/event
+
+cURL:
+curl -X GET "http://localhost:8083/order/customer/email/john.doe@example.com/event?from=2026-08-01&to=2026-08-31"
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8083/order/customer/email/john.doe@example.com/event?from=2026-08-01&to=2026-08-31" -Method GET
+
+--------------------------------------------------------------------------------
+3.13 Get Order Events by Customer Phone (Feature O1 / O2)
+--------------------------------------------------------------------------------
+GET http://localhost:8083/order/customer/phone/0412345678/event
+
+cURL:
+curl -X GET "http://localhost:8083/order/customer/phone/0412345678/event?from=2026-08-01&to=2026-08-31"
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8083/order/customer/phone/0412345678/event?from=2026-08-01&to=2026-08-31" -Method GET
+
+--------------------------------------------------------------------------------
+3.14 Get Order Events by Product ID (Feature O2)
+--------------------------------------------------------------------------------
+GET http://localhost:8083/order/product/1/event
+
+cURL:
+curl -X GET "http://localhost:8083/order/product/1/event?date=2026-08-27"
+
+PowerShell:
+Invoke-RestMethod -Uri "http://localhost:8083/order/product/1/event?date=2026-08-27" -Method GET
+
 
 ================================================================================
  4. NOTIFICATION SERVICE (Port 8084)
@@ -414,7 +477,7 @@ POST http://localhost:8084/notification/customer/1
 Content-Type: application/json
 
 cURL:
-curl -X POST http://localhost:8084/notification/customer/1 -H "Content-Type: application/json" -d '{"message": "Your item has been dispatched with tracking #TRK-98124."}'
+curl -X POST http://localhost:8084/notification/customer/1 -H "Content-Type: application/json" -d '{\"message\": \"Your item has been dispatched with tracking #TRK-98124.\"}'
 
 PowerShell:
 Invoke-RestMethod -Uri "http://localhost:8084/notification/customer/1" -Method POST -ContentType "application/json" -Body '{"message":"Your item has been dispatched with tracking #TRK-98124."}'
@@ -437,7 +500,7 @@ POST http://localhost:8084/notification/customer/email/john.doe@example.com
 Content-Type: application/json
 
 cURL:
-curl -X POST http://localhost:8084/notification/customer/email/john.doe@example.com -H "Content-Type: application/json" -d '{"message": "Special Member Offer: Get 20% off your next purchase!"}'
+curl -X POST http://localhost:8084/notification/customer/email/john.doe@example.com -H "Content-Type: application/json" -d '{\"message\": \"Special Member Offer: Get 20% off your next purchase!\"}'
 
 PowerShell:
 Invoke-RestMethod -Uri "http://localhost:8084/notification/customer/email/john.doe@example.com" -Method POST -ContentType "application/json" -Body '{"message":"Special Member Offer: Get 20% off your next purchase!"}'
@@ -460,7 +523,7 @@ POST http://localhost:8084/notification/customer/phone/0412345678
 Content-Type: application/json
 
 cURL:
-curl -X POST http://localhost:8084/notification/customer/phone/0412345678 -H "Content-Type: application/json" -d '{"message": "SMS Security Code: 492019"}'
+curl -X POST http://localhost:8084/notification/customer/phone/0412345678 -H "Content-Type: application/json" -d '{\"message\": "SMS Security Code: 492019"}'
 
 PowerShell:
 Invoke-RestMethod -Uri "http://localhost:8084/notification/customer/phone/0412345678" -Method POST -ContentType "application/json" -Body '{"message":"SMS Security Code: 492019"}'
@@ -483,7 +546,7 @@ POST http://localhost:8084/notification/broadcast
 Content-Type: application/json
 
 cURL:
-curl -X POST http://localhost:8084/notification/broadcast -H "Content-Type: application/json" -d '{"message": "Storewide Summer Sale is now live! Free shipping on all orders."}'
+curl -X POST http://localhost:8084/notification/broadcast -H "Content-Type: application/json" -d '{\"message\": \"Storewide Summer Sale is now live! Free shipping on all orders.\"}'
 
 PowerShell:
 Invoke-RestMethod -Uri "http://localhost:8084/notification/broadcast" -Method POST -ContentType "application/json" -Body '{"message":"Storewide Summer Sale is now live! Free shipping on all orders."}'
@@ -496,7 +559,7 @@ POST http://localhost:8084/notification/broadcast/area
 Content-Type: application/json
 
 cURL:
-curl -X POST http://localhost:8084/notification/broadcast/area -H "Content-Type: application/json" -d '{"message": "NSW Express Delivery available today only!", "state": "NSW", "country": "Australia"}'
+curl -X POST http://localhost:8084/notification/broadcast/area -H "Content-Type: application/json" -d '{\"message\": \"NSW Express Delivery available today only!\", \"state\": \"NSW\", \"country\": \"Australia\"}'
 
 PowerShell:
 Invoke-RestMethod -Uri "http://localhost:8084/notification/broadcast/area" -Method POST -ContentType "application/json" -Body '{"message":"NSW Express Delivery available today only!","state":"NSW","country":"Australia"}'

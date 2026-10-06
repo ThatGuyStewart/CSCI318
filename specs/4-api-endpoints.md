@@ -52,8 +52,9 @@ Read projections are eventually consistent with accepted commands. Event-query e
 |**P3**|`GET`|`/product/event`|Optional Query params `date`, or `from` and `to`|`200 OK` (`Array<DomainEventEnvelope>`)|*None*|Read persisted product events, optionally filtered by an inclusive date range|
 |**P3**|`GET`|`/product/{id}/event`|Optional Query params `date`, or `from` and `to`|`200 OK` (`Array<DomainEventEnvelope>`)|*None*|Read persisted product events by aggregate id|
 |**P3**|`GET`|`/product/category/{category}/event`|Optional Query params `date`, or `from` and `to`|`200 OK` (`Array<DomainEventEnvelope>`)|*None*|Read persisted product events by category|
+||`GET`|`/product/recommendation`|`RecommendationRequest` (`sessionId`, `message`)|`200 OK` (`RecommendationResponse`)|*None*|AI customer-support query; see `7-AI-agent.md`|
 
-\---
+## 
 
 ## 3\. Order Service (`http://localhost:8083`)
 

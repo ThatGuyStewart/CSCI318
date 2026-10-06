@@ -6,8 +6,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +29,7 @@ import com.retail.product.dto.ProductCreateRequest;
 import com.retail.product.dto.ProductResponse;
 import com.retail.product.dto.ProductUpdateRequest;
 import com.retail.product.exception.BadRequestException;
+import com.retail.product.exception.ConflictException;
 import com.retail.product.exception.ResourceNotFoundException;
 import com.retail.product.repository.ProductDomainEventRepository;
 import com.retail.product.repository.ProductRepository;
@@ -35,6 +39,8 @@ import com.retail.product.repository.ProductViewRepository;
 @Transactional
 public class ProductService {
 
+    private static final Logger log = LoggerFactory.getLogger(ProductService.class);
+
     private static final String PRODUCT_NOT_FOUND_MESSAGE = "Product not found with id: ";
     private static final String PRODUCT_ID_REQUIRED_MESSAGE = "Product id is required";
     private static final String PRODUCT_AGGREGATE_TYPE = "Product";
@@ -43,19 +49,25 @@ public class ProductService {
     private final ProductViewRepository productViewRepository;
     private final ProductDomainEventRepository productDomainEventRepository;
     private final ObjectMapper objectMapper;
-        private final DomainEventPublisher domainEventPublisher;
-        private final String eventTopic;
+    private final DomainEventPublisher domainEventPublisher;
+    private final String eventTopic;
+    private final dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore<dev.langchain4j.data.segment.TextSegment> embeddingStore;
+    private final Optional<dev.langchain4j.model.embedding.EmbeddingModel> embeddingModelOpt;
 
     public ProductService(ProductRepository productRepository, ProductViewRepository productViewRepository,
             ProductDomainEventRepository productDomainEventRepository,
             ObjectMapper objectMapper, DomainEventPublisher domainEventPublisher,
-            @Value("${retail.events.topic}") String eventTopic) {
+            @Value("${retail.events.topic}") String eventTopic,
+            dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore<dev.langchain4j.data.segment.TextSegment> embeddingStore,
+            Optional<dev.langchain4j.model.embedding.EmbeddingModel> embeddingModelOpt) {
         this.productRepository = productRepository;
         this.productViewRepository = productViewRepository;
         this.productDomainEventRepository = productDomainEventRepository;
         this.objectMapper = objectMapper;
         this.domainEventPublisher = domainEventPublisher;
         this.eventTopic = eventTopic;
+        this.embeddingStore = embeddingStore;
+        this.embeddingModelOpt = embeddingModelOpt;
     }
 
     public ProductResponse createProduct(ProductCreateRequest request) {
@@ -67,6 +79,9 @@ public class ProductService {
         }
         if (request.getPrice() == null || request.getPrice() <= 0) {
             throw new BadRequestException("Product price must be greater than 0");
+        }
+        if (productRepository.existsByNameIgnoreCase(request.getName())) {
+            throw new ConflictException("Product name already exists: " + request.getName());
         }
 
         Product product = new Product(
@@ -104,6 +119,9 @@ public class ProductService {
         initializeAggregateVersion(product);
 
         if (request.getName() != null && !request.getName().isBlank()) {
+            if (productRepository.existsByNameIgnoreCaseAndProductIdNot(request.getName(), productId)) {
+                throw new ConflictException("Product name already exists: " + request.getName());
+            }
             product.setName(request.getName());
         }
         if (request.getCategory() != null) {
@@ -193,22 +211,22 @@ public class ProductService {
         List<ProductDomainEvent> events;
         if (start == null) {
             events = productId != null
-                ? productDomainEventRepository.findByAggregateTypeAndAggregateIdOrderByAggregateVersionAsc(
-                    PRODUCT_AGGREGATE_TYPE, productId)
-                : eventCategory != null
-                    ? productDomainEventRepository.findByAggregateTypeAndEventCategoryOrderByOccurredAtAscAggregateVersionAsc(
-                        PRODUCT_AGGREGATE_TYPE, eventCategory)
-                    : productDomainEventRepository.findByAggregateTypeOrderByOccurredAtAscAggregateVersionAsc(
-                        PRODUCT_AGGREGATE_TYPE);
+                    ? productDomainEventRepository.findByAggregateTypeAndAggregateIdOrderByAggregateVersionAsc(
+                            PRODUCT_AGGREGATE_TYPE, productId)
+                    : eventCategory != null
+                            ? productDomainEventRepository.findByAggregateTypeAndEventCategoryOrderByOccurredAtAscAggregateVersionAsc(
+                                    PRODUCT_AGGREGATE_TYPE, eventCategory)
+                            : productDomainEventRepository.findByAggregateTypeOrderByOccurredAtAscAggregateVersionAsc(
+                                    PRODUCT_AGGREGATE_TYPE);
         } else {
             events = productId != null
-                ? productDomainEventRepository.findByAggregateTypeAndAggregateIdAndOccurredAtGreaterThanEqualAndOccurredAtLessThanOrderByAggregateVersionAsc(
-                    PRODUCT_AGGREGATE_TYPE, productId, start, end)
-                : eventCategory != null
-                    ? productDomainEventRepository.findByAggregateTypeAndEventCategoryAndOccurredAtGreaterThanEqualAndOccurredAtLessThanOrderByOccurredAtAscAggregateVersionAsc(
-                        PRODUCT_AGGREGATE_TYPE, eventCategory, start, end)
-                    : productDomainEventRepository.findByAggregateTypeAndOccurredAtGreaterThanEqualAndOccurredAtLessThanOrderByOccurredAtAscAggregateVersionAsc(
-                        PRODUCT_AGGREGATE_TYPE, start, end);
+                    ? productDomainEventRepository.findByAggregateTypeAndAggregateIdAndOccurredAtGreaterThanEqualAndOccurredAtLessThanOrderByAggregateVersionAsc(
+                            PRODUCT_AGGREGATE_TYPE, productId, start, end)
+                    : eventCategory != null
+                            ? productDomainEventRepository.findByAggregateTypeAndEventCategoryAndOccurredAtGreaterThanEqualAndOccurredAtLessThanOrderByOccurredAtAscAggregateVersionAsc(
+                                    PRODUCT_AGGREGATE_TYPE, eventCategory, start, end)
+                            : productDomainEventRepository.findByAggregateTypeAndOccurredAtGreaterThanEqualAndOccurredAtLessThanOrderByOccurredAtAscAggregateVersionAsc(
+                                    PRODUCT_AGGREGATE_TYPE, start, end);
         }
         return events.stream()
                 .map(this::toDomainEventEnvelope)
@@ -248,13 +266,108 @@ public class ProductService {
     }
 
     private void upsertProductView(Product product) {
-        productViewRepository.save(new ProductView(product.getProductId(), product.getName(), product.getCategory(),
-                product.getPrice(), product.getDescription()));
+        ProductView pv = new ProductView(product.getProductId(), product.getName(), product.getCategory(),
+                product.getPrice(), product.getDescription());
+        productViewRepository.save(pv);
+
+        // update embedding store entry for this product
+        try {
+            String text = buildTextFromProduct(product);
+            dev.langchain4j.data.segment.TextSegment ts = dev.langchain4j.data.segment.TextSegment.from(text);
+            dev.langchain4j.data.embedding.Embedding emb = createEmbedding(text);
+            String key = String.valueOf(product.getProductId());
+            // Attempt to remove any existing entry for this id before adding the new one.
+            // Use reflection to call a removal method if present to avoid compile-time
+            // dependency on specific embedding-store APIs.
+            tryRemoveEmbeddingStoreEntry(key);
+            embeddingStore.add(key, emb, ts);
+        } catch (Throwable t) {
+            // non-fatal; log exception type only (no potentially sensitive message) and continue
+            log.debug("Failed to update embedding for product {}: exception={}", product.getProductId(), t.getClass().getName());
+        }
+    }
+
+    /**
+     * Best-effort removal of an embedding-store entry for the given key. Tries
+     * a set of common method names via reflection and ignores failures.
+     */
+    private void tryRemoveEmbeddingStoreEntry(String key) {
+        if (embeddingStore == null || key == null) {
+            return;
+        }
+        String[] removalMethods = new String[]{"remove", "delete", "deleteById", "removeById", "upsert", "put", "replace"};
+        Class<?> cls = embeddingStore.getClass();
+        for (String mName : removalMethods) {
+            try {
+                java.lang.reflect.Method m = null;
+                try {
+                    m = cls.getMethod(mName, String.class);
+                } catch (NoSuchMethodException e) {
+                    // try (String, Object) signature
+                    try {
+                        m = cls.getMethod(mName, String.class, Object.class);
+                    } catch (NoSuchMethodException ignored) {
+                    }
+                }
+                if (m != null) {
+                    m.setAccessible(true);
+                    if (m.getParameterCount() == 1) {
+                        m.invoke(embeddingStore, key);
+                    } else if (m.getParameterCount() == 2) {
+                        m.invoke(embeddingStore, key, (Object) null);
+                    }
+                    // If we successfully invoked a removal-like method, stop trying further names.
+                    return;
+                }
+            } catch (Throwable ex) {
+                // Record the method name and exception type at DEBUG for diagnostics.
+                log.debug("Invocation of embedding-store method '{}' failed: {}", mName, ex.getClass().getName());
+                // ignore and try next candidate
+            }
+        }
+    }
+
+    private String buildTextFromProduct(Product product) {
+        StringBuilder sb = new StringBuilder();
+        if (product.getName() != null) {
+            sb.append(product.getName()).append("\n");
+        }
+        if (product.getCategory() != null) {
+            sb.append(product.getCategory().name()).append("\n");
+        }
+        if (product.getDescription() != null) {
+            sb.append(product.getDescription()).append("\n");
+        }
+        return sb.toString();
+    }
+
+    private dev.langchain4j.data.embedding.Embedding createEmbedding(String text) {
+        try {
+            if (embeddingModelOpt != null && embeddingModelOpt.isPresent()) {
+                dev.langchain4j.model.embedding.EmbeddingModel m = embeddingModelOpt.get();
+                dev.langchain4j.model.output.Response<dev.langchain4j.data.embedding.Embedding> resp = m.embed(dev.langchain4j.data.segment.TextSegment.from(text));
+                if (resp != null && resp.content() != null) {
+                    return resp.content();
+                }
+            }
+        } catch (Throwable ex) {
+            // Log exception type at DEBUG to aid diagnosis without exposing prompt/content.
+            log.debug("Embedding model invocation failed: {}", ex.getClass().getName());
+        }
+        // fallback deterministic embedding
+        int dim = 256;
+        float[] vec = new float[dim];
+        int h = text == null ? 0 : text.hashCode();
+        for (int i = 0; i < dim; i++) {
+            vec[i] = ((h >> (i % 32)) & 0xFF) / 255.0f;
+        }
+        return dev.langchain4j.data.embedding.Embedding.from(vec);
     }
 
     private DomainEventEnvelope toDomainEventEnvelope(ProductDomainEvent event) {
         try {
-            Map<String, Object> payload = objectMapper.readValue(event.getPayload(), new TypeReference<>() { });
+            Map<String, Object> payload = objectMapper.readValue(event.getPayload(), new TypeReference<>() {
+            });
             DomainEventEnvelope envelope = new DomainEventEnvelope();
             envelope.setEventId(event.getEventId());
             envelope.setAggregateType(event.getAggregateType());
