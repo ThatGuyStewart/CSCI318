@@ -16,8 +16,9 @@ if not errorlevel 1 (
 	goto :kafkaReady
 )
 
-call :ensureServicePort9092Free
-if errorlevel 1 (
+netstat -aon | findstr ":9092 " | findstr "LISTENING" >nul
+if not errorlevel 1 (
+	echo Port 9092 is in use but is not a responsive Kafka broker. Stop the process using that port before starting the platform.
 	pause
 	exit /b 1
 )
@@ -133,10 +134,6 @@ for %%P in (8081 8082 8083 8084) do (
 )
 exit /b 0
 
-:ensureServicePort9092Free
-netstat -aon | findstr ":9092 " | findstr "LISTENING" >nul
-if not errorlevel 1 (
-	echo Port 9092 is in use but is not a responsive Kafka broker. Stop the process using that port before starting the platform.
-	exit /b 1
-)
-exit /b 0
+:: ensureServicePort9092Free inlined earlier; original label removed
+
+

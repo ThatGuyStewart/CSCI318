@@ -1,3 +1,11 @@
-**/target/
+*.jar
+*.jar.original
+*.lst
 **/data/
 *.log
+*Test.txt
+*Test.xml
+*.dump
+*.dumpstream
+2026*
+**/target/

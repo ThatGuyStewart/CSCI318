@@ -537,7 +537,7 @@ pandoc CSCI318-report.md -o CSCI318-report.pdf --from markdown+yaml_metadata_blo
         - Port already in use: change `server.port` in `application.properties`.
         - Kafka not available: confirm Docker compose stack is running and `localhost:9092` is reachable.
         - LLM/embedding provider errors: ensure provider environment variables are set or disable the agent feature.
-	- Invoke-WebRequest errors when running curl commands: Run "Remove-item alias:curl" in the command prompt to remove the Invoke-WebRequest CmdLet's curl alias.
+	    - Invoke-WebRequest errors when running curl commands: Run "Remove-item alias:curl" when in Powershell to remove the Invoke-WebRequest CmdLet's curl alias.
 
 12) Security & production notes
     - For production use, replace in-memory H2 with a production rdbms (Postgres, MySQL). Update `spring.datasource.*` accordingly.
