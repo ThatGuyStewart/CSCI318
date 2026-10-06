@@ -190,7 +190,9 @@ public class RetryingRecommendationAgent implements RecommendationAgent {
 
             RecommendationAgent built = builder.build();
             this.delegate = built;
-            log.info("RecommendationAgent initialized and ready");
+            log.info("RecommendationAgent initialized and ready (delegate={})", built.getClass().getName());
+            // Additional readiness info for ops: include a readable marker so logs can be grepped
+            log.info("RetryingRecommendationAgent: real RecommendationAgent is ready and accepting requests");
 
             // Once initialized, shut down scheduler
             this.scheduler.shutdown();
