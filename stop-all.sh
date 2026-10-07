@@ -17,3 +17,16 @@ EOF
     fi
 done
 echo "Done."
+
+# Attempt to stop Kafka via docker compose (best-effort)
+KAFKA_COMPOSE_FILE="$(cd "$(dirname "$0")" && pwd)/kafka-compose.yml"
+if [ -f "$KAFKA_COMPOSE_FILE" ]; then
+  echo "Stopping Kafka (docker compose)..."
+  if docker compose -f "$KAFKA_COMPOSE_FILE" down >/dev/null 2>&1; then
+    echo "Kafka stopped via docker compose."
+  else
+    echo "Failed to stop Kafka (docker compose failed or docker not running)."
+  fi
+else
+  echo "Kafka compose file not found at $KAFKA_COMPOSE_FILE. Skipping Kafka stop."
+fi
