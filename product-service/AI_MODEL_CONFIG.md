@@ -34,15 +34,5 @@ Testing
 mvn -DskipTests package
 java -jar product-service/target/product-service-1.0.0.jar.original
 
-2. Reproduce the earlier curl test:
-
-curl -X GET "http://localhost:8082/product/recommendation?message=I%20need%20a%20gift%20for%20a%20keen%20home%20cook"
-
-3. If you still see truncated messages or frequent invalid JSON:
-- Increase `maxOutputTokens` to 768–1024.
-- Inspect raw responses in the logs (ModelLogger) to diagnose truncation or extra text.
-
 References
 - langchain4j starters documentation (ollama / google-ai-gemini): consult the starter README for provider-specific configuration keys and examples.
-
-If you want, I can attempt to wire provider-specific options programmatically (requires knowing which starter/provider you want to tune). Tell me which provider to target (ollama or gemini) and I will implement the ChatModel configuration changes.
