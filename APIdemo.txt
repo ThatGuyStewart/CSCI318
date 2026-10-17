@@ -1,0 +1,44 @@
+# VIEW ALL CUSTOMERS
+curl -X GET http://localhost:8081/customer
+
+# CREATE A NEW CUSTOMER
+curl -X POST http://localhost:8081/customer -H "Content-Type: application/json" -d '{\"name\": \"John Doe\", \"email\": \"john.doe@example.com\", \"phone\": \"0412345678\", \"contactMethod\": \"Email\", \"address\": {\"unitNumber\": 12, \"streetNumber\": 100, \"street\": \"George St\", \"suburb\": \"Sydney CBD\", \"city\": \"Sydney\", \"postcode\": 2000, \"state\": \"NSW\", \"country\": \"Australia\"}}'
+
+# VIEW THE CREATED CUSTOMER. YOU CAN SUPPLY THEIR CUSTOMER ID, PHONE NUMBER, OR EMAIL ADDRESS
+# LET'S USE THEIR EMAIL ADDRESS:
+curl -X GET http://localhost:8081/customer/email/john.doe@example.com
+
+#VIEW ALL PRODUCTS
+curl -X GET http://localhost:8082/product
+
+# CREATE A NEW PRODUCT
+curl -X POST http://localhost:8082/product -H "Content-Type: application/json" -d '{\"name\": \"TEST\", \"category\": \"Electronics\", \"price\": 0.99, \"description\": \"Test product.\" }'
+
+# SEARCH PRODUCTS BY NAME TO FIND THE CREATED PRODUCT
+curl -X GET "http://localhost:8082/product/search?name=TEST"
+
+# ADD THE CREATED PRODUCT TO THE CREATED CUSTOMER'S BASKET
+curl -X POST http://localhost:8081/customer/66/basket -H "Content-Type: application/json" -d '{\"productId\": 226, \"quantity\": 1}'
+
+# CREATE A NEW ORDER FROM THE PRODUCTS IN THE CUSTOMER'S BASKET (AN ORDER WITH NO ITEMS WILL USE THE CUSTOMER'S BASKET)
+curl -X POST http://localhost:8083/order -H "Content-Type: application/json" -d '{\"customerId\": 66}'
+
+# THIS SHOULD HAVE EMPTIED THE CUSTOMER'S BASKET. LET'S CHECK
+curl -X GET http://localhost:8081/customer/66/basket
+
+# IT ALSO SHOULD HAVE CREATED A NOTIFICATION TO THE CUSTOMER THAT THEIR ORDER HAS BEEN PLACED
+# LET'S CHECK THE CUSTOMER'S NOTIFICATIONS. YOU CAN SUPPLY THEIR CUSTOMER ID, PHONE NUMBER, OR EMAIL ADDRESS
+# LET'S USE THEIR PHONE NUMBER:
+curl -X GET http://localhost:8084/notification/customer/phone/0412345678
+
+# PRODUCT RECOMMENDATION AGENT DEMO
+# LET'S FIND A GIFT FOR A KEEN HOME COOK
+curl -X GET "http://localhost:8082/product/recommendation?message=I+need+a+gift+for+a+keen+home+cook"
+
+# LET'S LOOK FOR A GIFT FOR A DAUGHTER
+curl -X GET "http://localhost:8082/product/recommendation?message=I'm+looking+for+a+gift+for+my+daughter"
+
+# THE RECOMMENDED PRODUCTS ARE ALL TOYS
+# USING SESSION ID TO CONTINUE THE CONVERSATION
+# CLARIFY THE DAUGHTER IS NOT A CHILD
+curl -X GET "http://localhost:8082/product/recommendation?message=She+is+50+years+old&sessionId="
