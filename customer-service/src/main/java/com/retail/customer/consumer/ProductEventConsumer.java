@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.retail.common.DomainEventMessage;
+import com.retail.common.UnsupportedEventSchemaVersionException;
 import com.retail.customer.domain.Basket;
 import com.retail.customer.domain.Customer;
 import com.retail.customer.domain.ProcessedProductEvent;
@@ -45,6 +46,10 @@ public class ProductEventConsumer {
     @KafkaListener(topics = "${retail.events.product-topic}", groupId = "${retail.events.consumer.group-id}")
     @Transactional
     public void onProductEvent(DomainEventMessage event) {
+        if (event == null) {
+            throw new UnsupportedEventSchemaVersionException(null);
+        }
+        event.requireCurrentSchemaVersion();
         if (!("ProductUpdatedEvent".equals(event.eventType()) || "ProductDeletedEvent".equals(event.eventType()))
                 || processedProductEventRepository.existsById(event.eventId())) {
             return;

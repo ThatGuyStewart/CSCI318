@@ -16,5 +16,26 @@ public record DomainEventMessage(
         Instant occurredAt,
         UUID correlationId,
         UUID causationId,
-        Map<String, Object> payload) {
+        Map<String, Object> payload,
+        Integer schemaVersion) {
+
+    public static final int CURRENT_SCHEMA_VERSION = 1;
+
+    public DomainEventMessage {
+        if (schemaVersion == null) {
+            schemaVersion = CURRENT_SCHEMA_VERSION;
+        }
+    }
+
+    public DomainEventMessage(UUID eventId, String aggregateType, Long aggregateId, long aggregateVersion,
+            String eventType, Instant occurredAt, UUID correlationId, UUID causationId, Map<String, Object> payload) {
+        this(eventId, aggregateType, aggregateId, aggregateVersion, eventType, occurredAt, correlationId, causationId,
+                payload, CURRENT_SCHEMA_VERSION);
+    }
+
+    public void requireCurrentSchemaVersion() {
+        if (!Integer.valueOf(CURRENT_SCHEMA_VERSION).equals(schemaVersion)) {
+            throw new UnsupportedEventSchemaVersionException(schemaVersion);
+        }
+    }
 }

@@ -28,7 +28,7 @@ class NotificationProjectionStreamsConfigurationTest {
         NotificationProjectionService projectionService = mock(NotificationProjectionService.class);
         StreamsBuilder streamsBuilder = new StreamsBuilder();
         new NotificationProjectionStreamsConfiguration().notificationProjectionStream(streamsBuilder, projectionService,
-                "notification.events");
+                "notification.events", "notification.projection.dlt");
 
         Properties properties = new Properties();
         properties.put(StreamsConfig.APPLICATION_ID_CONFIG, "notification-projection-test");

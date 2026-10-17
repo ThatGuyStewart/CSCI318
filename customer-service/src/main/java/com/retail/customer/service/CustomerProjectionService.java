@@ -9,6 +9,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.retail.common.DomainEventMessage;
+import com.retail.common.InvalidProjectionEventException;
 import com.retail.customer.domain.Address;
 import com.retail.customer.domain.ContactMethod;
 import com.retail.customer.domain.CustomerProjectionCheckpoint;
@@ -38,12 +39,19 @@ public class CustomerProjectionService {
     @Transactional
     public boolean apply(DomainEventMessage event) {
         Objects.requireNonNull(event, "Customer event is required");
-        if (!CUSTOMER_AGGREGATE_TYPE.equals(event.aggregateType())) {
-            throw new IllegalArgumentException("Unexpected aggregate type for Customer projection");
+        if (!Integer.valueOf(DomainEventMessage.CURRENT_SCHEMA_VERSION).equals(event.schemaVersion())) {
+            throw new InvalidProjectionEventException("Unsupported Customer event schema version: "
+                    + event.schemaVersion());
         }
-        Long customerId = Objects.requireNonNull(event.aggregateId(), "Customer event aggregate ID is required");
+        if (!CUSTOMER_AGGREGATE_TYPE.equals(event.aggregateType())) {
+            throw new InvalidProjectionEventException("Unexpected aggregate type for Customer projection");
+        }
+        if (event.aggregateId() == null) {
+            throw new InvalidProjectionEventException("Customer event aggregate ID is required");
+        }
+        Long customerId = event.aggregateId();
         if (event.aggregateVersion() < 1) {
-            throw new IllegalArgumentException("Customer event must have a positive aggregate version");
+            throw new InvalidProjectionEventException("Customer event must have a positive aggregate version");
         }
 
         CustomerProjectionCheckpoint checkpoint = checkpointRepository.findById(customerId).orElse(null);
@@ -66,7 +74,7 @@ public class CustomerProjectionService {
                 CustomerView existing = requireCustomerView(customerId);
                 JsonNode total = objectMapper.valueToTree(event.payload()).path("total");
                 if (!total.isNumber()) {
-                    throw new IllegalArgumentException("Customer basket event is missing its total");
+                    throw new InvalidProjectionEventException("Customer basket event is missing its total");
                 }
                 existing.setBasketTotal(total.doubleValue());
                 customerViewRepository.save(existing);
@@ -76,7 +84,7 @@ public class CustomerProjectionService {
                 existing.setBasketTotal(0.0);
                 customerViewRepository.save(existing);
             }
-            default -> throw new IllegalArgumentException(
+            default -> throw new InvalidProjectionEventException(
                     "Unsupported Customer event type: " + event.eventType());
         }
 
@@ -100,14 +108,14 @@ public class CustomerProjectionService {
                 || !payload.path("email").isTextual()
                 || !payload.path("phone").isTextual()
                 || !payload.path("contactMethod").isTextual()) {
-            throw new IllegalArgumentException("Customer event payload is missing required projection fields");
+            throw new InvalidProjectionEventException("Customer event payload is missing required projection fields");
         }
 
         ContactMethod contactMethod;
         try {
             contactMethod = ContactMethod.valueOf(payload.path("contactMethod").asText());
         } catch (IllegalArgumentException exception) {
-            throw new IllegalArgumentException("Customer event contains an unknown contact method", exception);
+            throw new InvalidProjectionEventException("Customer event contains an unknown contact method", exception);
         }
 
         Address address = null;
@@ -116,7 +124,7 @@ public class CustomerProjectionService {
             try {
                 address = objectMapper.treeToValue(addressNode, Address.class);
             } catch (JsonProcessingException exception) {
-                throw new IllegalArgumentException("Customer event contains an invalid address", exception);
+                throw new InvalidProjectionEventException("Customer event contains an invalid address", exception);
             }
         }
         return new CustomerView(event.aggregateId(), payload.path("name").asText(), payload.path("email").asText(),

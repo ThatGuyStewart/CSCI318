@@ -21,7 +21,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class KafkaDomainEventPublisherTest {
 
     @Mock
-    private KafkaTemplate<String, DomainEventMessage> kafkaTemplate;
+    private KafkaTemplate<Object, Object> kafkaTemplate;
 
     @Test
     void partitionsEventsByAggregateTypeAndId() {

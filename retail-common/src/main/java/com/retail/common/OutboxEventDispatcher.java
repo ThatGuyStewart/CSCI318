@@ -17,11 +17,11 @@ class OutboxEventDispatcher {
     private static final Logger LOGGER = LoggerFactory.getLogger(OutboxEventDispatcher.class);
 
     private final OutboxEventRepository outboxEventRepository;
-    private final KafkaTemplate<String, DomainEventMessage> kafkaTemplate;
+    private final KafkaTemplate<Object, Object> kafkaTemplate;
     private final ObjectMapper objectMapper;
 
     OutboxEventDispatcher(OutboxEventRepository outboxEventRepository,
-            KafkaTemplate<String, DomainEventMessage> kafkaTemplate, ObjectMapper objectMapper) {
+            KafkaTemplate<Object, Object> kafkaTemplate, ObjectMapper objectMapper) {
         this.outboxEventRepository = outboxEventRepository;
         this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = objectMapper;
@@ -36,12 +36,16 @@ class OutboxEventDispatcher {
                 kafkaTemplate.send(outboxEvent.getTopic(), outboxEvent.getEventKey(), event).get();
                 outboxEvent.markPublished();
             } catch (JsonProcessingException | InterruptedException | ExecutionException | RuntimeException exception) {
-                if (exception instanceof InterruptedException) {
+                boolean interrupted = exception instanceof InterruptedException;
+                if (interrupted) {
                     Thread.currentThread().interrupt();
                 }
                 outboxEvent.recordFailedAttempt();
                 LOGGER.error("Failed to publish outbox event to topic {} after {} attempt(s)", outboxEvent.getTopic(),
                         outboxEvent.getAttempts(), exception);
+                if (interrupted) {
+                    break;
+                }
             }
         }
     }

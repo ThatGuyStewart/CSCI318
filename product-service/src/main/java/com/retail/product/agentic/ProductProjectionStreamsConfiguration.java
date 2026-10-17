@@ -9,6 +9,7 @@ import org.springframework.kafka.annotation.EnableKafkaStreams;
 import org.springframework.kafka.support.serializer.JsonSerde;
 
 import com.retail.common.DomainEventMessage;
+import com.retail.common.ProjectionFailureRouter;
 import com.retail.product.service.ProductProjectionService;
 
 import org.apache.kafka.streams.StreamsBuilder;
@@ -23,13 +24,14 @@ public class ProductProjectionStreamsConfiguration {
     @Bean
     KStream<String, DomainEventMessage> productProjectionStream(StreamsBuilder streamsBuilder,
             ProductProjectionService projectionService,
-            @Value("${retail.events.topic}") String productEventsTopic) {
+            @Value("${retail.events.topic}") String productEventsTopic,
+            @Value("${retail.events.projection.dlt-topic}") String deadLetterTopic) {
         JsonSerde<DomainEventMessage> eventSerde = new JsonSerde<>(DomainEventMessage.class);
         eventSerde.deserializer().addTrustedPackages("com.retail.common");
         eventSerde.deserializer().ignoreTypeHeaders();
         KStream<String, DomainEventMessage> events = streamsBuilder.stream(productEventsTopic,
                 Consumed.with(Serdes.String(), eventSerde));
-        events.foreach((key, event) -> projectionService.apply(event));
+        ProjectionFailureRouter.route(events, projectionService::apply, deadLetterTopic);
         return events;
     }
 }

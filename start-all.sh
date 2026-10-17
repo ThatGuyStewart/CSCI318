@@ -34,6 +34,19 @@ wait_for_kafka() {
 	return 1
 }
 
+ensure_kafka_topics() {
+	local topic
+	for topic in customer.events product.events order.events notification.events \
+		customer.projection.dlt product.projection.dlt order.projection.dlt notification.projection.dlt \
+		customer.projection.deserialization.dlt product.projection.deserialization.dlt \
+		order.projection.deserialization.dlt notification.projection.deserialization.dlt \
+		customer.consumer.dlt notification.consumer.dlt; do
+		docker compose -f "$KAFKA_COMPOSE_FILE" exec -T kafka \
+			/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 \
+			--create --if-not-exists --topic "$topic" --partitions 1 --replication-factor 1 || return 1
+	done
+}
+
 KAFKA_COMPOSE_FILE="$(dirname "$0")/kafka-compose.yml"
 
 for port in 8081 8082 8083 8084; do
@@ -71,8 +84,14 @@ else
 	wait_for_kafka "$KAFKA_COMPOSE_FILE" || exit 1
 fi
 
+echo "Ensuring Kafka event and dead-letter topics exist..."
+ensure_kafka_topics || {
+	echo "Failed to create the required Kafka event and dead-letter topics."
+	exit 1
+}
+
 echo "Preparing shared Maven dependencies..."
-mvn -pl retail-common -am install -DskipTests || exit 1
+mvn -pl retail-common -am install -DskipTests -Dmaven.compiler.useIncrementalCompilation=false || exit 1
 
 mvn -pl customer-service spring-boot:run &
 PID_CUST=$!

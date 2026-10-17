@@ -2,11 +2,13 @@ package com.retail.common;
 
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
+import org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -17,7 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManagerFactory;
 
 @AutoConfiguration
-@AutoConfigureAfter(HibernateJpaAutoConfiguration.class)
+@AutoConfigureAfter({HibernateJpaAutoConfiguration.class, KafkaAutoConfiguration.class})
 @ConditionalOnProperty(name = "retail.events.publishing.enabled", havingValue = "true")
 @ConditionalOnProperty(name = "retail.events.outbox.enabled", havingValue = "true")
 @ConditionalOnBean(EntityManagerFactory.class)
@@ -36,7 +38,8 @@ public class TransactionalOutboxAutoConfiguration {
 
     @Bean
     OutboxEventDispatcher outboxEventDispatcher(OutboxEventRepository outboxEventRepository,
-            KafkaTemplate<String, DomainEventMessage> kafkaTemplate, ObjectMapper objectMapper) {
+            @Qualifier("outboxKafkaTemplate") KafkaTemplate<Object, Object> kafkaTemplate,
+            ObjectMapper objectMapper) {
         return new OutboxEventDispatcher(outboxEventRepository, kafkaTemplate, objectMapper);
     }
 }

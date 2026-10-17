@@ -13,6 +13,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.retail.common.DomainEventMessage;
+import com.retail.common.InvalidProjectionEventException;
 import com.retail.order.domain.Address;
 import com.retail.order.domain.OrderItem;
 import com.retail.order.domain.OrderProjectionCheckpoint;
@@ -45,12 +46,19 @@ public class OrderProjectionService {
     @Transactional
     public boolean apply(DomainEventMessage event) {
         Objects.requireNonNull(event, "Order event is required");
-        if (!ORDER_AGGREGATE_TYPE.equals(event.aggregateType())) {
-            throw new IllegalArgumentException("Unexpected aggregate type for Order projection");
+        if (!Integer.valueOf(DomainEventMessage.CURRENT_SCHEMA_VERSION).equals(event.schemaVersion())) {
+            throw new InvalidProjectionEventException("Unsupported Order event schema version: "
+                    + event.schemaVersion());
         }
-        Long orderId = Objects.requireNonNull(event.aggregateId(), "Order event aggregate ID is required");
+        if (!ORDER_AGGREGATE_TYPE.equals(event.aggregateType())) {
+            throw new InvalidProjectionEventException("Unexpected aggregate type for Order projection");
+        }
+        if (event.aggregateId() == null) {
+            throw new InvalidProjectionEventException("Order event aggregate ID is required");
+        }
+        Long orderId = event.aggregateId();
         if (event.aggregateVersion() < 1) {
-            throw new IllegalArgumentException("Order event must have a positive aggregate version");
+            throw new InvalidProjectionEventException("Order event must have a positive aggregate version");
         }
 
         OrderProjectionCheckpoint checkpoint = checkpointRepository.findById(orderId).orElse(null);
@@ -58,7 +66,7 @@ public class OrderProjectionService {
             return false;
         }
         if (!ORDER_SNAPSHOT_EVENTS.contains(event.eventType())) {
-            throw new IllegalArgumentException("Unsupported Order event type: " + event.eventType());
+            throw new InvalidProjectionEventException("Unsupported Order event type: " + event.eventType());
         }
 
         OrderSummaryView existing = summaryRepository.findById(orderId).orElse(null);
@@ -76,24 +84,24 @@ public class OrderProjectionService {
                 || !payload.path("total").isNumber()
                 || !payload.path("status").isTextual()
                 || !payload.path("items").isArray()) {
-            throw new IllegalArgumentException("Order event payload is missing required projection fields");
+            throw new InvalidProjectionEventException("Order event payload is missing required projection fields");
         }
 
         OrderStatus status;
         try {
             status = OrderStatus.valueOf(payload.path("status").asText());
         } catch (IllegalArgumentException exception) {
-            throw new IllegalArgumentException("Order event contains an unknown status", exception);
+            throw new InvalidProjectionEventException("Order event contains an unknown status", exception);
         }
 
         AddressDto addressDto;
         try {
             addressDto = objectMapper.treeToValue(payload.get("address"), AddressDto.class);
         } catch (JsonProcessingException exception) {
-            throw new IllegalArgumentException("Order event contains an invalid address", exception);
+            throw new InvalidProjectionEventException("Order event contains an invalid address", exception);
         }
         if (addressDto == null) {
-            throw new IllegalArgumentException("Order event is missing its address");
+            throw new InvalidProjectionEventException("Order event is missing its address");
         }
 
         List<OrderItem> items = new ArrayList<>();
@@ -102,17 +110,17 @@ public class OrderProjectionService {
                 OrderItemEventPayload item = objectMapper.treeToValue(itemNode, OrderItemEventPayload.class);
                 if (item.productId() == null || item.quantity() == null || item.quantity() <= 0
                         || item.price() == null || item.subtotal() == null) {
-                    throw new IllegalArgumentException("Order event contains an incomplete item");
+                    throw new InvalidProjectionEventException("Order event contains an incomplete item");
                 }
                 items.add(new OrderItem(item.productId(), item.name(), item.price(), item.quantity(), item.subtotal()));
-            } catch (IllegalArgumentException exception) {
+            } catch (InvalidProjectionEventException exception) {
                 throw exception;
             } catch (Exception exception) {
-                throw new IllegalArgumentException("Order event contains an invalid item", exception);
+                throw new InvalidProjectionEventException("Order event contains an invalid item", exception);
             }
         }
         if (items.isEmpty()) {
-            throw new IllegalArgumentException("Order event must contain at least one item");
+            throw new InvalidProjectionEventException("Order event must contain at least one item");
         }
 
         LocalDateTime createdAt = existing != null ? existing.getCreatedAt()

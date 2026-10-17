@@ -20,6 +20,26 @@ function Test-KafkaReady {
     return $LASTEXITCODE -eq 0
 }
 
+function Ensure-KafkaTopics {
+    $topics = @(
+        "customer.events", "product.events", "order.events", "notification.events",
+        "customer.projection.dlt", "product.projection.dlt",
+        "order.projection.dlt", "notification.projection.dlt",
+        "customer.projection.deserialization.dlt", "product.projection.deserialization.dlt",
+        "order.projection.deserialization.dlt", "notification.projection.deserialization.dlt",
+        "customer.consumer.dlt", "notification.consumer.dlt"
+    )
+    foreach ($topic in $topics) {
+        docker compose -f "$PSScriptRoot/kafka-compose.yml" exec -T kafka `
+            /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 `
+            --create --if-not-exists --topic $topic --partitions 1 --replication-factor 1
+        if ($LASTEXITCODE -ne 0) {
+            return $false
+        }
+    }
+    return $true
+}
+
 $kafkaAlreadyRunning = Test-KafkaReady
 if ($kafkaAlreadyRunning) {
     Write-Host "Kafka is already running on port 9092. Reusing the existing broker." -ForegroundColor Green
@@ -77,8 +97,14 @@ else {
     }
 }
 
+Write-Host "Ensuring Kafka event and dead-letter topics exist..." -ForegroundColor Yellow
+if (-not (Ensure-KafkaTopics)) {
+    Write-Host "Failed to create the required Kafka event and dead-letter topics." -ForegroundColor Red
+    exit 1
+}
+
 Write-Host "Preparing shared Maven dependencies..." -ForegroundColor Yellow
-& mvn.cmd -pl retail-common -am install -DskipTests
+& mvn.cmd -pl retail-common -am install -DskipTests -Dmaven.compiler.useIncrementalCompilation=false
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Failed to prepare shared Maven dependencies." -ForegroundColor Red
     exit $LASTEXITCODE

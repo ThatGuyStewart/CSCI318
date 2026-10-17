@@ -11,4 +11,6 @@ interface OutboxEventRepository extends JpaRepository<OutboxEvent, UUID> {
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<OutboxEvent> findTop100ByPublishedFalseOrderByCreatedAtAsc();
+
+    long countByPublishedFalse();
 }

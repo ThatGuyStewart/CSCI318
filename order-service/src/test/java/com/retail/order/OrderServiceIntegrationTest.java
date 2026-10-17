@@ -1,6 +1,7 @@
 package com.retail.order;
 
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
@@ -384,7 +385,7 @@ class OrderServiceIntegrationTest {
                                 .andExpect(jsonPath("$[2].eventType").value("OrderStatusChangedEvent"))
                                 .andExpect(jsonPath("$[0].timestamp").doesNotExist());
 
-                mockMvc.perform(get("/order/event").param("date", LocalDate.now().toString()))
+                mockMvc.perform(get("/order/event").param("date", LocalDate.now(ZoneOffset.UTC).toString()))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(3))));
         }

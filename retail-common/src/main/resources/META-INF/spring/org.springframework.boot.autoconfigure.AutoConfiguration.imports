@@ -1,3 +1,6 @@
 com.retail.common.DomainEventPublisherAutoConfiguration
 com.retail.common.TransactionalOutboxAutoConfiguration
+com.retail.common.OutboxKafkaTemplateAutoConfiguration
 com.retail.common.InboundUriNormalizingAutoConfiguration
+com.retail.common.StreamingObservabilityAutoConfiguration
+com.retail.common.KafkaListenerDeadLetterAutoConfiguration

@@ -12,9 +12,9 @@ final class KafkaDomainEventPublisher implements DomainEventPublisher {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(KafkaDomainEventPublisher.class);
 
-    private final KafkaTemplate<String, DomainEventMessage> kafkaTemplate;
+    private final KafkaTemplate<Object, Object> kafkaTemplate;
 
-    KafkaDomainEventPublisher(KafkaTemplate<String, DomainEventMessage> kafkaTemplate) {
+    KafkaDomainEventPublisher(KafkaTemplate<Object, Object> kafkaTemplate) {
         this.kafkaTemplate = kafkaTemplate;
     }
 

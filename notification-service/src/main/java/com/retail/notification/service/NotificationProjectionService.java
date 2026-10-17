@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.retail.common.DomainEventMessage;
+import com.retail.common.InvalidProjectionEventException;
 import com.retail.notification.domain.DeliveryType;
 import com.retail.notification.domain.NotificationProjectionCheckpoint;
 import com.retail.notification.domain.NotificationView;
@@ -34,13 +35,19 @@ public class NotificationProjectionService {
     @Transactional
     public boolean apply(DomainEventMessage event) {
         Objects.requireNonNull(event, "Notification event is required");
-        if (!NOTIFICATION_AGGREGATE_TYPE.equals(event.aggregateType())) {
-            throw new IllegalArgumentException("Unexpected aggregate type for Notification projection");
+        if (!Integer.valueOf(DomainEventMessage.CURRENT_SCHEMA_VERSION).equals(event.schemaVersion())) {
+            throw new InvalidProjectionEventException("Unsupported Notification event schema version: "
+                    + event.schemaVersion());
         }
-        Long notificationId = Objects.requireNonNull(event.aggregateId(),
-                "Notification event aggregate ID is required");
+        if (!NOTIFICATION_AGGREGATE_TYPE.equals(event.aggregateType())) {
+            throw new InvalidProjectionEventException("Unexpected aggregate type for Notification projection");
+        }
+        if (event.aggregateId() == null) {
+            throw new InvalidProjectionEventException("Notification event aggregate ID is required");
+        }
+        Long notificationId = event.aggregateId();
         if (event.aggregateVersion() < 1) {
-            throw new IllegalArgumentException("Notification event must have a positive aggregate version");
+            throw new InvalidProjectionEventException("Notification event must have a positive aggregate version");
         }
 
         NotificationProjectionCheckpoint checkpoint = checkpointRepository.findById(notificationId).orElse(null);
@@ -48,7 +55,7 @@ public class NotificationProjectionService {
             return false;
         }
         if (!"NotificationCreatedEvent".equals(event.eventType())) {
-            throw new IllegalArgumentException("Unsupported Notification event type: " + event.eventType());
+            throw new InvalidProjectionEventException("Unsupported Notification event type: " + event.eventType());
         }
 
         JsonNode payload = objectMapper.valueToTree(event.payload());
@@ -59,24 +66,27 @@ public class NotificationProjectionService {
                 || !payload.path("type").isTextual()
                 || !payload.path("message").isTextual()
                 || !payload.path("sentAt").isTextual()) {
-            throw new IllegalArgumentException("Notification event payload is missing required projection fields");
+            throw new InvalidProjectionEventException(
+                    "Notification event payload is missing required projection fields");
         }
 
         DeliveryType deliveryType;
         try {
             deliveryType = DeliveryType.valueOf(payload.path("type").asText());
         } catch (IllegalArgumentException exception) {
-            throw new IllegalArgumentException("Notification event contains an unknown delivery type", exception);
+            throw new InvalidProjectionEventException(
+                    "Notification event contains an unknown delivery type", exception);
         }
 
         LocalDateTime sent;
         try {
             sent = objectMapper.treeToValue(payload.path("sentAt"), LocalDateTime.class);
         } catch (Exception exception) {
-            throw new IllegalArgumentException("Notification event contains an invalid sentAt value", exception);
+            throw new InvalidProjectionEventException(
+                    "Notification event contains an invalid sentAt value", exception);
         }
         if (sent == null) {
-            throw new IllegalArgumentException("Notification event is missing its sentAt value");
+            throw new InvalidProjectionEventException("Notification event is missing its sentAt value");
         }
 
         viewRepository.save(new NotificationView(notificationId, payload.path("customerId").longValue(), deliveryType,

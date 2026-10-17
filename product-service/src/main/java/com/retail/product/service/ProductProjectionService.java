@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.retail.common.DomainEventMessage;
+import com.retail.common.InvalidProjectionEventException;
 import com.retail.product.domain.ProductCategory;
 import com.retail.product.domain.ProductProjectionCheckpoint;
 import com.retail.product.domain.ProductView;
@@ -33,12 +34,19 @@ public class ProductProjectionService {
     @Transactional
     public boolean apply(DomainEventMessage event) {
         Objects.requireNonNull(event, "Product event is required");
-        if (!PRODUCT_AGGREGATE_TYPE.equals(event.aggregateType())) {
-            throw new IllegalArgumentException("Unexpected aggregate type for Product projection");
+        if (!Integer.valueOf(DomainEventMessage.CURRENT_SCHEMA_VERSION).equals(event.schemaVersion())) {
+            throw new InvalidProjectionEventException("Unsupported Product event schema version: "
+                    + event.schemaVersion());
         }
-        Long productId = Objects.requireNonNull(event.aggregateId(), "Product event aggregate ID is required");
+        if (!PRODUCT_AGGREGATE_TYPE.equals(event.aggregateType())) {
+            throw new InvalidProjectionEventException("Unexpected aggregate type for Product projection");
+        }
+        if (event.aggregateId() == null) {
+            throw new InvalidProjectionEventException("Product event aggregate ID is required");
+        }
+        Long productId = event.aggregateId();
         if (event.aggregateVersion() < 1) {
-            throw new IllegalArgumentException("Product event must have an aggregate ID and positive version");
+            throw new InvalidProjectionEventException("Product event must have a positive aggregate version");
         }
 
         ProductProjectionCheckpoint checkpoint = checkpointRepository.findById(productId).orElse(null);
@@ -52,7 +60,7 @@ public class ProductProjectionService {
                 || "ProductUpdatedEvent".equals(event.eventType())) {
             productViewRepository.save(Objects.requireNonNull(toProductView(event)));
         } else {
-            throw new IllegalArgumentException("Unsupported Product event type: " + event.eventType());
+            throw new InvalidProjectionEventException("Unsupported Product event type: " + event.eventType());
         }
 
         checkpointRepository.save(new ProductProjectionCheckpoint(productId, event.aggregateVersion()));
@@ -62,7 +70,7 @@ public class ProductProjectionService {
     private ProductView toProductView(DomainEventMessage event) {
         JsonNode payload = objectMapper.valueToTree(event.payload());
         if (payload == null || !payload.isObject()) {
-            throw new IllegalArgumentException("Product event payload must be a JSON object");
+            throw new InvalidProjectionEventException("Product event payload must be a JSON object");
         }
         JsonNode name = payload.get("name");
         JsonNode category = payload.get("category");
@@ -71,14 +79,14 @@ public class ProductProjectionService {
         if (name == null || !name.isTextual()
                 || category == null || !category.isTextual()
                 || price == null || !price.isNumber()) {
-            throw new IllegalArgumentException("Product event payload is missing required projection fields");
+            throw new InvalidProjectionEventException("Product event payload is missing required projection fields");
         }
 
         ProductCategory productCategory;
         try {
             productCategory = ProductCategory.valueOf(category.asText());
         } catch (IllegalArgumentException exception) {
-            throw new IllegalArgumentException("Product event contains an unknown category", exception);
+            throw new InvalidProjectionEventException("Product event contains an unknown category", exception);
         }
 
         return new ProductView(event.aggregateId(), name.asText(), productCategory, price.doubleValue(),

@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.time.Instant;
 import java.util.Map;
@@ -16,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.retail.common.DomainEventMessage;
+import com.retail.common.UnsupportedEventSchemaVersionException;
 import com.retail.notification.dto.NotificationCreateRequest;
 import com.retail.notification.repository.ProcessedOrderEventRepository;
 import com.retail.notification.service.NotificationService;
@@ -77,6 +79,16 @@ class OrderEventConsumerTest {
 
         verify(processedOrderEventRepository, never()).existsById(any());
         verify(notificationService, never()).createNotificationForCustomerId(any(), any());
+    }
+
+    @Test
+    void rejectsUnsupportedEventSchemaVersions() {
+        DomainEventMessage event = new DomainEventMessage(UUID.randomUUID(), "Order", 42L, 2,
+                "OrderPlacedEvent", Instant.now(), null, null,
+                Map.of("customerId", 3L, "orderId", 42L), 2);
+
+        assertThrows(UnsupportedEventSchemaVersionException.class,
+                () -> new OrderEventConsumer(processedOrderEventRepository, notificationService).onOrderEvent(event));
     }
 
     private DomainEventMessage orderEvent(UUID eventId, String eventType) {

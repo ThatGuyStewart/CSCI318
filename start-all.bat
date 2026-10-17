@@ -44,8 +44,15 @@ if errorlevel 1 (
 )
 
 :kafkaReady
+call :ensureKafkaTopics
+if errorlevel 1 (
+	echo Failed to create the required Kafka event and dead-letter topics.
+	pause
+	exit /b 1
+)
+
 echo Preparing shared Maven dependencies...
-call mvn.cmd -pl retail-common -am install -DskipTests
+call mvn.cmd -pl retail-common -am install -DskipTests -Dmaven.compiler.useIncrementalCompilation=false
 if errorlevel 1 (
 	echo Failed to prepare shared Maven dependencies.
 	pause
@@ -124,6 +131,17 @@ goto waitForKafkaLoop
 docker compose -f "%~dp0kafka-compose.yml" exec -T kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >nul 2>&1
 exit /b %errorlevel%
 
+:ensureKafkaTopics
+for %%T in (customer.events product.events order.events notification.events customer.projection.dlt product.projection.dlt order.projection.dlt notification.projection.dlt customer.projection.deserialization.dlt product.projection.deserialization.dlt order.projection.deserialization.dlt notification.projection.deserialization.dlt customer.consumer.dlt notification.consumer.dlt) do (
+	call :ensureKafkaTopic %%T
+	if errorlevel 1 exit /b 1
+)
+exit /b 0
+
+:ensureKafkaTopic
+docker compose -f "%~dp0kafka-compose.yml" exec -T kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --if-not-exists --topic %~1 --partitions 1 --replication-factor 1 >nul
+exit /b %errorlevel%
+
 :ensureServicePortsAvailable
 for %%P in (8081 8082 8083 8084) do (
 	netstat -aon | findstr ":%%P " | findstr "LISTENING" >nul
@@ -135,5 +153,3 @@ for %%P in (8081 8082 8083 8084) do (
 exit /b 0
 
 :: ensureServicePort9092Free inlined earlier; original label removed
-
-

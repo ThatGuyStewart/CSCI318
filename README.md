@@ -35,7 +35,7 @@ Install these before starting the platform:
     ./start-all.sh
     ```
 
-4. The launcher starts Kafka at `localhost:9092`, installs the shared Maven module, and opens the four services on ports `8081` through `8084`.
+4. The launcher starts Kafka at `localhost:9092`, creates the required event and dead-letter topics, installs the shared Maven module, and opens the four services on ports `8081` through `8084`.
 5. Seed example data after the services finish starting (first run only, as data persists between runs):
     ```bat
     populate-data.bat
@@ -248,11 +248,13 @@ Once started, the services are accessible at:
 | Order Service | http://localhost:8083 |
 | Notification Service | http://localhost:8084 |
 
-The start scripts also start Kafka at `localhost:9092`. To stop it after stopping the services, run:
+The start scripts also start Kafka at `localhost:9092` and create the event, projection, and cross-service consumer DLT topics. To stop it after stopping the services, run:
 
 ```bash
 docker compose -f kafka-compose.yml down
 ```
+
+Each service exposes `GET /actuator/health`; while Kafka Streams is enabled, the health result reports the stream's state. `GET /actuator/metrics/retail.events.outbox.pending` reports the number of unpublished outbox records. Protect actuator endpoints with authentication and network policy in any non-local deployment.
 
 ### Running a Single Service
 
@@ -394,6 +396,11 @@ mvn -pl notification-service clean test
 ```
 
 Tests use `MockMvc` and `@SpringBootTest` with an in-memory H2 database, covering both happy-path and error scenarios (HTTP 400, 404, etc.) derived from the OpenAPI contract.
+The shared module also runs a broker-level Kafka Streams integration test with an embedded Kafka broker; this verifies projection validation DLT routing and malformed-record DLT routing without Docker. Unit tests also cover legacy event envelope schema defaults and Streams health status:
+
+```bash
+mvn -pl retail-common -am -Dtest=ProjectionFailureRouterEmbeddedKafkaTest -Dsurefire.failIfNoSpecifiedTests=false test
+```
 
 ---
 
@@ -416,7 +423,8 @@ This section lists every dependency, installation steps, environment variables, 
         - Verify: `docker info` and `docker compose version`
 
 2) Kafka and infrastructure
-    - The repository includes `kafka-compose.yml` (root) that launches a local Kafka, Zookeeper, and any required connectors for development.
+    - The repository includes `kafka-compose.yml` (root) that launches a local Kafka broker for development.
+    - The broker disables automatic topic creation. The start scripts create `customer.events`, `product.events`, `order.events`, `notification.events`, each service's `*.projection.dlt`, each service's `*.projection.deserialization.dlt`, and `customer.consumer.dlt` / `notification.consumer.dlt` before launching services. When starting services manually, create these topics first or use one of the start scripts.
     - To start Kafka only (manual):
 
 ```bash
@@ -491,13 +499,13 @@ populate-data.bat
     - Show topics (requires Kafka CLI or kafkacat / kafka-topics container):
 
 ```bash
-docker exec -it <kafka_container_name> kafka-topics --bootstrap-server localhost:9092 --list
+docker compose -f kafka-compose.yml exec -T kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
 ```
 
     - Consume messages for troubleshooting (quick check):
 
 ```bash
-docker exec -it <kafka_container_name> kafka-console-consumer --bootstrap-server localhost:9092 --topic orders --from-beginning --max-messages 10
+docker compose -f kafka-compose.yml exec -T kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic order.events --from-beginning --max-messages 10
 ```
 
 8) Environment / application properties

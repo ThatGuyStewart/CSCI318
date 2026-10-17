@@ -13,7 +13,7 @@ public class DomainEventPublisherAutoConfiguration {
     @ConditionalOnProperty(name = "retail.events.publishing.enabled", havingValue = "true")
     @ConditionalOnProperty(name = "retail.events.outbox.enabled", havingValue = "false", matchIfMissing = true)
     @ConditionalOnMissingBean(DomainEventPublisher.class)
-    DomainEventPublisher kafkaDomainEventPublisher(KafkaTemplate<String, DomainEventMessage> kafkaTemplate) {
+    DomainEventPublisher kafkaDomainEventPublisher(KafkaTemplate<Object, Object> kafkaTemplate) {
         return new KafkaDomainEventPublisher(kafkaTemplate);
     }
 

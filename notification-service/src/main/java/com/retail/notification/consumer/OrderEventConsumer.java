@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.retail.common.DomainEventMessage;
+import com.retail.common.UnsupportedEventSchemaVersionException;
 import com.retail.notification.domain.ProcessedOrderEvent;
 import com.retail.notification.dto.NotificationCreateRequest;
 import com.retail.notification.repository.ProcessedOrderEventRepository;
@@ -34,6 +35,10 @@ public class OrderEventConsumer {
     @KafkaListener(topics = "${retail.events.order-topic}", groupId = "${retail.events.consumer.group-id}")
     @Transactional
     public void onOrderEvent(DomainEventMessage event) {
+        if (event == null) {
+            throw new UnsupportedEventSchemaVersionException(null);
+        }
+        event.requireCurrentSchemaVersion();
         if (!NOTIFIABLE_EVENT_TYPES.contains(event.eventType())
                 || processedOrderEventRepository.existsById(event.eventId())) {
             return;

@@ -1,6 +1,7 @@
 package com.retail.customer.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -20,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.retail.common.DomainEventMessage;
+import com.retail.common.InvalidProjectionEventException;
 import com.retail.customer.domain.Basket;
 import com.retail.customer.domain.CustomerProjectionCheckpoint;
 import com.retail.customer.domain.CustomerView;
@@ -67,5 +69,15 @@ class CustomerProjectionServiceTest {
         assertEquals("Updated Customer", viewCaptor.getValue().getName());
         assertEquals(25.0, viewCaptor.getValue().getBasketTotal());
         verify(checkpointRepository).save(any(CustomerProjectionCheckpoint.class));
+    }
+
+    @Test
+    void rejectsUnsupportedEventSchemaVersions() {
+        CustomerProjectionService projectionService = new CustomerProjectionService(customerViewRepository,
+                basketRepository, checkpointRepository, new ObjectMapper());
+        DomainEventMessage event = new DomainEventMessage(UUID.randomUUID(), "Customer", 42L, 3,
+                "CustomerUpdatedEvent", Instant.now(), null, null, Map.of("customerId", 42L), 2);
+
+        assertThrows(InvalidProjectionEventException.class, () -> projectionService.apply(event));
     }
 }

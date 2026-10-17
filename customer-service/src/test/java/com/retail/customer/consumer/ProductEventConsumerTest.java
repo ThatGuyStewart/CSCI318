@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.time.Instant;
 import java.util.List;
@@ -18,6 +19,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.retail.common.DomainEventMessage;
+import com.retail.common.UnsupportedEventSchemaVersionException;
 import com.retail.customer.domain.Basket;
 import com.retail.customer.domain.Customer;
 import com.retail.customer.repository.BasketRepository;
@@ -87,6 +89,14 @@ class ProductEventConsumerTest {
         verify(processedProductEventRepository, never()).save(any());
         verify(basketRepository, never()).findByItemsProductId(7L);
         verify(basketRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectsUnsupportedEventSchemaVersions() {
+        DomainEventMessage event = new DomainEventMessage(UUID.randomUUID(), "Product", 7L, 2,
+                "ProductUpdatedEvent", Instant.now(), null, null, Map.of("productId", 7L), 2);
+
+        assertThrows(UnsupportedEventSchemaVersionException.class, () -> consumer().onProductEvent(event));
     }
 
     @Test

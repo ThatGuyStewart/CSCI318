@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.retail.common.DomainEventMessage;
+import com.retail.common.UnsupportedEventSchemaVersionException;
 import com.retail.customer.domain.Basket;
 import com.retail.customer.domain.Customer;
 import com.retail.customer.domain.ProcessedOrderEvent;
@@ -43,6 +44,10 @@ public class OrderEventConsumer {
     @KafkaListener(topics = "${retail.events.order-topic}", groupId = "${retail.events.consumer.group-id}")
     @Transactional
     public void onOrderEvent(DomainEventMessage event) {
+        if (event == null) {
+            throw new UnsupportedEventSchemaVersionException(null);
+        }
+        event.requireCurrentSchemaVersion();
         if (!"BasketUsedForOrderEvent".equals(event.eventType())
                 || processedOrderEventRepository.existsById(event.eventId())) {
             return;

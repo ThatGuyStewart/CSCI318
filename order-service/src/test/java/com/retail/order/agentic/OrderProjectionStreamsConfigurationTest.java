@@ -28,7 +28,7 @@ class OrderProjectionStreamsConfigurationTest {
         OrderProjectionService projectionService = mock(OrderProjectionService.class);
         StreamsBuilder streamsBuilder = new StreamsBuilder();
         new OrderProjectionStreamsConfiguration().orderProjectionStream(streamsBuilder, projectionService,
-                "order.events");
+                "order.events", "order.projection.dlt");
 
         Properties properties = new Properties();
         properties.put(StreamsConfig.APPLICATION_ID_CONFIG, "order-projection-test");

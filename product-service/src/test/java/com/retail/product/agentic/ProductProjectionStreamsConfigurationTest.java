@@ -28,7 +28,7 @@ class ProductProjectionStreamsConfigurationTest {
         ProductProjectionService projectionService = mock(ProductProjectionService.class);
         StreamsBuilder streamsBuilder = new StreamsBuilder();
         new ProductProjectionStreamsConfiguration().productProjectionStream(streamsBuilder, projectionService,
-                "product.events");
+                "product.events", "product.projection.dlt");
 
         Properties properties = new Properties();
         properties.put(StreamsConfig.APPLICATION_ID_CONFIG, "product-projection-test");
