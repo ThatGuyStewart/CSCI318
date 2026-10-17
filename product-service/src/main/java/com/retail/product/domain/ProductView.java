@@ -27,15 +27,24 @@ public class ProductView {
 
     private String description;
 
+    @Column(name = "aggregate_version")
+    private Long aggregateVersion;
+
     public ProductView() {
     }
 
     public ProductView(Long productId, String name, ProductCategory category, Double price, String description) {
+        this(productId, name, category, price, description, 0);
+    }
+
+    public ProductView(Long productId, String name, ProductCategory category, Double price, String description,
+            long aggregateVersion) {
         this.productId = productId;
         this.name = name;
         this.category = category;
         this.price = price;
         this.description = description;
+        this.aggregateVersion = aggregateVersion;
     }
 
     public Long getProductId() { return productId; }
@@ -43,4 +52,5 @@ public class ProductView {
     public ProductCategory getCategory() { return category; }
     public Double getPrice() { return price; }
     public String getDescription() { return description; }
+    public long getAggregateVersion() { return aggregateVersion != null ? aggregateVersion : 0; }
 }

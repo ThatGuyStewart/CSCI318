@@ -156,12 +156,11 @@ For every state-changing user story:
 - The service appends an immutable domain event before acknowledging success.
 - Events have a unique `eventId`, aggregate type and ID, aggregate version, event type, `occurredAt`, correlation ID, causation ID, and payload.
 - Query endpoints read from service-owned projections, not by reconstructing response data from command-side entities.
-- Projections are eventually consistent; clients may receive `202 Accepted` where a projection is not yet available.
+- Projection-backed query endpoints may temporarily lag after a successful command. Command responses use the status codes documented in the API contract; the current implementation does not return `202 Accepted` solely because a projection is catching up.
 - Event consumers are idempotent and tolerate duplicate delivery.
 
 
 
 \*\*End of file\*\*
-
 
 

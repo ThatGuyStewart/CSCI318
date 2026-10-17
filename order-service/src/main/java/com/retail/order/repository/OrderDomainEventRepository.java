@@ -20,6 +20,8 @@ public interface OrderDomainEventRepository extends JpaRepository<OrderDomainEve
 
     List<OrderDomainEvent> findByAggregateTypeOrderByOccurredAtAscAggregateVersionAsc(String aggregateType);
 
+    List<OrderDomainEvent> findByAggregateTypeOrderByAggregateIdAscAggregateVersionAsc(String aggregateType);
+
     List<OrderDomainEvent> findByAggregateTypeAndAggregateIdOrderByAggregateVersionAsc(
             String aggregateType, Long aggregateId);
 

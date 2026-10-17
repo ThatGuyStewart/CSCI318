@@ -29,6 +29,7 @@ import com.retail.common.DomainEventMessage;
 import com.retail.common.DomainEventPublisher;
 import com.retail.order.client.CustomerClient;
 import com.retail.order.client.ProductClient;
+import com.retail.order.domain.OrderProjectionCheckpoint;
 import com.retail.order.domain.OrderStatus;
 import com.retail.order.dto.AddressDto;
 import com.retail.order.dto.BasketDto;
@@ -41,8 +42,10 @@ import com.retail.order.dto.OrderStatusUpdateRequest;
 import com.retail.order.dto.ProductDto;
 import com.retail.order.exception.ServiceUnavailableException;
 import com.retail.order.repository.OrderSummaryViewRepository;
+import com.retail.order.repository.OrderProjectionCheckpointRepository;
+import com.retail.order.service.OrderProjectionRebuilder;
 
-@SpringBootTest
+@SpringBootTest(properties = "retail.events.streams.enabled=false")
 @AutoConfigureMockMvc
 @SuppressWarnings({ "null", "unused" })
 class OrderServiceIntegrationTest {
@@ -67,6 +70,12 @@ class OrderServiceIntegrationTest {
 
         @Autowired
         private OrderSummaryViewRepository orderSummaryViewRepository;
+
+        @Autowired
+        private OrderProjectionRebuilder orderProjectionRebuilder;
+
+        @Autowired
+        private OrderProjectionCheckpointRepository orderProjectionCheckpointRepository;
 
         @BeforeEach
         @SuppressWarnings("unused")
@@ -108,6 +117,34 @@ class OrderServiceIntegrationTest {
 
                 org.junit.jupiter.api.Assertions.assertTrue(orderSummaryViewRepository.existsById(created.getOrderId()));
                 verify(domainEventPublisher).publish(eq("order.events"), any(DomainEventMessage.class));
+        }
+
+        @Test
+        void replayRebuildsOrderSummaryFromPlacedAndUpdatedEvents() throws Exception {
+                OrderItemDto item = new OrderItemDto(50L, "Coffee Beans", 25.0, 2, 50.0);
+                OrderCreateRequest createRequest = new OrderCreateRequest(1L, sampleAddress, List.of(item));
+                String response = mockMvc.perform(post("/order")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(createRequest)))
+                                .andExpect(status().isCreated())
+                                .andReturn().getResponse().getContentAsString();
+                OrderResponse created = objectMapper.readValue(response, OrderResponse.class);
+
+                mockMvc.perform(put("/order/" + created.getOrderId() + "/status")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                        new OrderStatusUpdateRequest(OrderStatus.InTransit))))
+                                .andExpect(status().isOk());
+
+                orderProjectionRebuilder.rebuild();
+
+                org.junit.jupiter.api.Assertions.assertEquals(OrderStatus.InTransit,
+                        orderSummaryViewRepository.findByIdWithItems(created.getOrderId()).orElseThrow().getStatus());
+                org.junit.jupiter.api.Assertions.assertEquals(50.0,
+                        orderSummaryViewRepository.findByIdWithItems(created.getOrderId()).orElseThrow().getTotal());
+                OrderProjectionCheckpoint checkpoint = orderProjectionCheckpointRepository
+                        .findById(created.getOrderId()).orElseThrow();
+                org.junit.jupiter.api.Assertions.assertEquals(2, checkpoint.getAggregateVersion());
         }
 
         @Test

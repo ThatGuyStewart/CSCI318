@@ -10,8 +10,10 @@ Read projections are eventually consistent with accepted commands. Event-query e
 |-|-|-|
 |Customer Service|`customer.events`|`product.events`, `order.events`|
 |Product Service|`product.events`|None|
-|Order Service|`order.events`|`customer.events` when needed to update its projection|
+|Order Service|`order.events`|None|
 |Notification Service|`notification.events`|`order.events`|
+
+Each service consumes its own event topic with Kafka Streams to maintain its read model (`CustomerView`, `ProductView`, `OrderSummaryView`, or `NotificationView`). Projection updates are asynchronous when streaming is enabled; clients should allow for temporary query lag after a command. Each service's relational event log, not Kafka topic retention, is the source for replaying its own projection.
 
 ## 1\. Customer Service (`http://localhost:8081`)
 
@@ -93,6 +95,3 @@ Read projections are eventually consistent with accepted commands. Event-query e
 |**N1**|`GET`|`/notification/date/{date}`|*None*|`200 OK` (`Array<NotificationResponse>`)|*None*|View notifications issued on a date|
 |**N1**|`GET`|`/notification/date-range`|Required query params `from`, `to`|`200 OK` (`Array<NotificationResponse>`)|*None*|View notifications issued within an inclusive date range|
 |**N1**|`GET`|`/notification/{id}`|*None*|`200 OK` (`NotificationResponse`)|*None*|View a notification by id|
-
-
-

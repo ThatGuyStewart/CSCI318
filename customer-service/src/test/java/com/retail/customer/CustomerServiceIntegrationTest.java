@@ -1,6 +1,7 @@
 package com.retail.customer;
 
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
@@ -35,9 +36,12 @@ import com.retail.customer.dto.CustomerCreateRequest;
 import com.retail.customer.dto.CustomerResponse;
 import com.retail.customer.dto.CustomerUpdateRequest;
 import com.retail.customer.dto.ProductDto;
+import com.retail.customer.repository.CustomerProjectionCheckpointRepository;
 import com.retail.customer.repository.CustomerViewRepository;
+import com.retail.customer.service.BasketService;
+import com.retail.customer.service.CustomerProjectionRebuilder;
 
-@SpringBootTest
+@SpringBootTest(properties = "retail.events.streams.enabled=false")
 @AutoConfigureMockMvc
 @SuppressWarnings({"null", "unused"})
 class CustomerServiceIntegrationTest {
@@ -50,6 +54,15 @@ class CustomerServiceIntegrationTest {
 
         @Autowired
         private CustomerViewRepository customerViewRepository;
+
+        @Autowired
+        private CustomerProjectionRebuilder customerProjectionRebuilder;
+
+        @Autowired
+        private CustomerProjectionCheckpointRepository customerProjectionCheckpointRepository;
+
+        @Autowired
+        private BasketService basketService;
 
         @MockitoBean
     private ProductClient productClient;
@@ -102,6 +115,34 @@ class CustomerServiceIntegrationTest {
         org.junit.jupiter.api.Assertions.assertTrue(customersJson.contains("\n"));
 
         org.junit.jupiter.api.Assertions.assertTrue(customerViewRepository.existsById(created.getCustomerId()));
+    }
+
+    @Test
+    void replayRebuildsCustomerProfileAndBasketTotalFromEventsAndCurrentBasket() throws Exception {
+        String unique = UUID.randomUUID().toString();
+        CustomerCreateRequest createRequest = new CustomerCreateRequest(
+                "Replay Customer", unique + "@example.com", unique, ContactMethod.Email, sampleAddress);
+        String response = mockMvc.perform(post("/customer")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        CustomerResponse created = objectMapper.readValue(response, CustomerResponse.class);
+
+        mockMvc.perform(post("/customer/" + created.getCustomerId() + "/basket")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new BasketAddRequest(101L, 2))))
+                .andExpect(status().isOk());
+        basketService.clearBasket(created.getCustomerId());
+
+        customerProjectionRebuilder.rebuild();
+
+        var view = customerViewRepository.findById(created.getCustomerId()).orElseThrow();
+        org.junit.jupiter.api.Assertions.assertEquals("Replay Customer", view.getName());
+        org.junit.jupiter.api.Assertions.assertEquals(0.0, view.getBasketTotal());
+        org.junit.jupiter.api.Assertions.assertEquals(3,
+                customerProjectionCheckpointRepository.findById(created.getCustomerId()).orElseThrow()
+                        .getAggregateVersion());
     }
 
     @Test

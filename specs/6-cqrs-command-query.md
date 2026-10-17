@@ -49,15 +49,15 @@ This document defines how Services apply CQRS, including:
 
 ### 4.1 Write Model (Aggregates)
 
-* Event-sourced aggregates: `Customer`, `Product`, `Order`.
+* Mutable command-side entities with persisted domain-event records: `Customer`, `Product`, `Order`.
 * CRUD aggregate: `Notification`.
 
 ### 4.2 Read Model (Projections)
 
-* `CustomerView`: driven by `CustomerCreatedEvent`, `CustomerUpdatedEvent`, `CustomerDeletedEvent`, `BasketItemAddedEvent`, `BasketItemRemovedEvent`, `BasketRecalculatedEvent`. Used by customer queries (C1, C2, C3).
-* `ProductView`: driven by `ProductCreatedEvent`, `ProductUpdatedEvent`, `ProductDeletedEvent`. Used by product queries (P2).
-* `OrderSummaryView`: driven by `OrderPlacedEvent`, `OrderStatusChangedEvent`, `OrderCancelledEvent`. Used by order queries (O1, O2).
-* **Notification Service** persists notifications in a CRUD store. No projection; reads are from the CRUD entity store.
+* `CustomerView`: driven by Customer profile and basket events through Customer Service's Kafka Streams topology. It can be rebuilt from the Customer event log; replay reconciles basket total from the mutable Basket table to accommodate historical order-driven clears.
+* `ProductView`: driven by `ProductCreatedEvent`, `ProductUpdatedEvent`, `ProductDeletedEvent` through Product Service's Kafka Streams topology. The projection can be rebuilt from its persisted event log.
+* `OrderSummaryView`: driven by order snapshot events through Order Service's Kafka Streams topology and rebuilt from its persisted event log.
+* `NotificationView`: driven by `NotificationCreatedEvent` through Notification Service's Kafka Streams topology and rebuilt from its persisted event log. Notification writes remain CRUD-based.
 
 \---
 
@@ -73,7 +73,7 @@ This document defines how Services apply CQRS, including:
 |P2|Get/search Products|Query|No|
 |P3|Get Product events|Query|No|
 |O1|Create/get/update/cancel Orders|Command + Query|Yes|
-|O2|Get/update Orders (admin queries)|Query|No|
+|O2|Get/update Orders (admin queries)|Command + Query|Yes|
 |O3|Get Order events|Query|No|
 |N1|Create/get Notifications|Command + Query|No|
 
@@ -132,12 +132,9 @@ Command responses confirm validation and event persistence. The API response may
 |`GetOrderEventsQuery(orderId, dateRange?)`|O3|Event store|Strong|Returns persisted `DomainEventEnvelope` records|
 |`ListAllOrderEventsQuery(dateRange?)`|O3|Event store|Strong|Returns persisted `DomainEventEnvelope` records|
 |`ListOrderEventsByCustomerQuery(customerId, dateRange?)`|O3|Event store|Strong|Returns persisted `DomainEventEnvelope` records|
-|`GetNotificationByIdQuery(notificationId)`|N1|Notification CRUD store|Strong||
-|`ListNotificationsByCustomerQuery(customerId, dateRange?)`|N1|Notification CRUD store|Strong||
-|`ListNotificationsByCustomerEmailQuery(email, dateRange?)`|N1|Notification CRUD store|Strong||
-|`ListNotificationsByCustomerPhoneQuery(phone, dateRange?)`|N1|Notification CRUD store|Strong||
-|`ListAllNotificationsQuery(dateRange?)`|N1|Notification CRUD store|Strong||
-|`ListNotificationsByDateQuery(date)`|N1|Notification CRUD store|Strong||
-
-
-
+|`GetNotificationByIdQuery(notificationId)`|N1|`NotificationView`|Strong||
+|`ListNotificationsByCustomerQuery(customerId, dateRange?)`|N1|`NotificationView`|Strong||
+|`ListNotificationsByCustomerEmailQuery(email, dateRange?)`|N1|`NotificationView`|Strong||
+|`ListNotificationsByCustomerPhoneQuery(phone, dateRange?)`|N1|`NotificationView`|Strong||
+|`ListAllNotificationsQuery(dateRange?)`|N1|`NotificationView`|Strong||
+|`ListNotificationsByDateQuery(date)`|N1|`NotificationView`|Strong||

@@ -37,6 +37,7 @@ import com.retail.notification.exception.ResourceNotFoundException;
 import com.retail.notification.repository.NotificationDomainEventRepository;
 import com.retail.notification.repository.NotificationRepository;
 import com.retail.notification.repository.NotificationViewRepository;
+import com.retail.notification.service.NotificationProjectionService;
 
 @Service
 @Transactional
@@ -48,12 +49,16 @@ public class NotificationService {
     private final CustomerClient customerClient;
     private final ObjectMapper objectMapper;
     private final DomainEventPublisher domainEventPublisher;
+    private final NotificationProjectionService projectionService;
+    private final boolean streamsEnabled;
     private final String eventTopic;
 
     public NotificationService(NotificationRepository notificationRepository,
             NotificationViewRepository notificationViewRepository,
             NotificationDomainEventRepository notificationDomainEventRepository, CustomerClient customerClient,
             ObjectMapper objectMapper, DomainEventPublisher domainEventPublisher,
+            NotificationProjectionService projectionService,
+            @Value("${retail.events.streams.enabled:true}") boolean streamsEnabled,
             @Value("${retail.events.topic}") String eventTopic) {
         this.notificationRepository = notificationRepository;
         this.notificationViewRepository = notificationViewRepository;
@@ -61,6 +66,8 @@ public class NotificationService {
         this.customerClient = customerClient;
         this.objectMapper = objectMapper;
         this.domainEventPublisher = domainEventPublisher;
+        this.projectionService = projectionService;
+        this.streamsEnabled = streamsEnabled;
         this.eventTopic = eventTopic;
     }
 
@@ -312,13 +319,14 @@ public class NotificationService {
     private Notification saveNotification(Notification notification) {
         Notification saved = notificationRepository
                 .save(Objects.requireNonNull(notification, "Notification is required"));
-        appendNotificationCreatedEvent(saved);
-        notificationViewRepository.save(new NotificationView(saved.getNotificationId(), saved.getCustomerId(), saved.getType(),
-                saved.getMessage(), saved.getSent()));
+        DomainEventMessage event = appendNotificationCreatedEvent(saved);
+        if (!streamsEnabled) {
+            projectionService.apply(event);
+        }
         return saved;
     }
 
-    private void appendNotificationCreatedEvent(Notification notification) {
+    private DomainEventMessage appendNotificationCreatedEvent(Notification notification) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("notificationId", notification.getNotificationId());
         payload.put("customerId", notification.getCustomerId());
@@ -329,12 +337,12 @@ public class NotificationService {
             NotificationDomainEvent event = new NotificationDomainEvent(UUID.randomUUID(), "Notification",
                     notification.getNotificationId(), 1, "NotificationCreatedEvent", Instant.now(), null, null,
                     objectMapper.writeValueAsString(payload));
+            DomainEventMessage message = new DomainEventMessage(event.getEventId(), event.getAggregateType(),
+                    event.getAggregateId(), event.getAggregateVersion(), event.getEventType(), event.getOccurredAt(),
+                    event.getCorrelationId(), event.getCausationId(), payload);
             notificationDomainEventRepository.save(event);
-            domainEventPublisher.publish(eventTopic,
-                    new DomainEventMessage(event.getEventId(), event.getAggregateType(),
-                            event.getAggregateId(), event.getAggregateVersion(), event.getEventType(),
-                            event.getOccurredAt(),
-                            event.getCorrelationId(), event.getCausationId(), payload));
+            domainEventPublisher.publish(eventTopic, message);
+            return message;
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("Unable to serialize notification event payload", exception);
         }

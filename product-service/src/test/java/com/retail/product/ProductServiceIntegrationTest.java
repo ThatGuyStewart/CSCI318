@@ -28,7 +28,7 @@ import com.retail.product.dto.ProductResponse;
 import com.retail.product.dto.ProductUpdateRequest;
 import com.retail.product.repository.ProductViewRepository;
 
-@SpringBootTest
+@SpringBootTest(properties = "retail.events.streams.enabled=false")
 @AutoConfigureMockMvc
 @SuppressWarnings("null")
 class ProductServiceIntegrationTest {
@@ -41,6 +41,18 @@ class ProductServiceIntegrationTest {
 
         @Autowired
         private ProductViewRepository productViewRepository;
+
+        @Autowired
+        private com.retail.product.service.ProductProjectionRebuilder productProjectionRebuilder;
+
+        @Autowired
+        private com.retail.product.repository.ProductDomainEventRepository productDomainEventRepository;
+
+        @Autowired
+        private com.retail.product.repository.ProductProjectionCheckpointRepository productProjectionCheckpointRepository;
+
+        @Autowired
+        private com.retail.product.service.ProductProjectionService productProjectionService;
 
         @org.springframework.test.context.bean.override.mockito.MockitoBean
         private DomainEventPublisher domainEventPublisher;
@@ -89,6 +101,78 @@ class ProductServiceIntegrationTest {
                 .andReturn().getResponse().getContentAsString(), ProductResponse.class);
 
         org.junit.jupiter.api.Assertions.assertTrue(productViewRepository.existsById(created.getProductId()));
+    }
+
+    @Test
+    void projectionReplayRebuildsTheLatestStateAndRetainsDeleteCheckpoint() throws Exception {
+        ProductResponse created = objectMapper.readValue(mockMvc.perform(post("/product")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new ProductCreateRequest("Replayable Product",
+                                ProductCategory.Tools, 12.0, "Before replay"))))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString(), ProductResponse.class);
+
+        mockMvc.perform(put("/product/" + created.getProductId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new ProductUpdateRequest("Replayed Product",
+                                ProductCategory.Kitchen, 18.0, "After replay"))))
+                .andExpect(status().isOk());
+
+        int replayed = productProjectionRebuilder.rebuild();
+
+        org.junit.jupiter.api.Assertions.assertTrue(replayed >= 2);
+        org.junit.jupiter.api.Assertions.assertEquals("Replayed Product",
+                productViewRepository.findById(created.getProductId()).orElseThrow().getName());
+        org.junit.jupiter.api.Assertions.assertEquals(2,
+                productProjectionCheckpointRepository.findById(created.getProductId()).orElseThrow().getAggregateVersion());
+
+        mockMvc.perform(delete("/product/" + created.getProductId()))
+                .andExpect(status().isNoContent());
+        productProjectionRebuilder.rebuild();
+
+        org.junit.jupiter.api.Assertions.assertFalse(productViewRepository.existsById(created.getProductId()));
+        org.junit.jupiter.api.Assertions.assertEquals(3,
+                productProjectionCheckpointRepository.findById(created.getProductId()).orElseThrow().getAggregateVersion());
+
+        com.retail.product.domain.ProductDomainEvent createdEvent = productDomainEventRepository
+                .findByAggregateTypeAndAggregateIdOrderByAggregateVersionAsc("Product", created.getProductId()).get(0);
+        java.util.Map<String, Object> payload = objectMapper.readValue(createdEvent.getPayload(),
+                new com.fasterxml.jackson.core.type.TypeReference<>() { });
+        com.retail.common.DomainEventMessage duplicate = new com.retail.common.DomainEventMessage(
+                createdEvent.getEventId(), createdEvent.getAggregateType(), createdEvent.getAggregateId(),
+                createdEvent.getAggregateVersion(), createdEvent.getEventType(), createdEvent.getOccurredAt(),
+                createdEvent.getCorrelationId(), createdEvent.getCausationId(), payload);
+
+        org.junit.jupiter.api.Assertions.assertFalse(productProjectionService.apply(duplicate));
+        org.junit.jupiter.api.Assertions.assertFalse(productViewRepository.existsById(created.getProductId()));
+    }
+
+    @Test
+    void failedProjectionReplayLeavesThePreviousProjectionUntouched() throws Exception {
+        ProductResponse created = objectMapper.readValue(mockMvc.perform(post("/product")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new ProductCreateRequest("Replay Rollback Product",
+                                ProductCategory.Tools, 21.0, "Keep this projection"))))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString(), ProductResponse.class);
+        com.retail.product.domain.ProductView before = productViewRepository.findById(created.getProductId()).orElseThrow();
+        long invalidVersion = productDomainEventRepository
+                .findByAggregateTypeAndAggregateIdOrderByAggregateVersionAsc("Product", created.getProductId())
+                .getLast().getAggregateVersion() + 1;
+        com.retail.product.domain.ProductDomainEvent invalidEvent = new com.retail.product.domain.ProductDomainEvent(
+                java.util.UUID.randomUUID(), "Product", created.getProductId(), ProductCategory.Tools, invalidVersion,
+                "ProductUpdatedEvent", java.time.Instant.now(), null, null, "not-json");
+        productDomainEventRepository.save(invalidEvent);
+
+        try {
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, productProjectionRebuilder::rebuild);
+            org.junit.jupiter.api.Assertions.assertEquals(before.getName(),
+                    productViewRepository.findById(created.getProductId()).orElseThrow().getName());
+            org.junit.jupiter.api.Assertions.assertEquals(before.getAggregateVersion(),
+                    productProjectionCheckpointRepository.findById(created.getProductId()).orElseThrow().getAggregateVersion());
+        } finally {
+            productDomainEventRepository.deleteById(invalidEvent.getEventId());
+        }
     }
 
     @Test

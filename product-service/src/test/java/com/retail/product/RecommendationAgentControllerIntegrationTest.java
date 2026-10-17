@@ -20,7 +20,10 @@ import com.retail.product.domain.ProductView;
 import com.retail.product.repository.ProductViewRepository;
 import com.retail.product.service.RecommendationAgent;
 
-@SpringBootTest(properties = "retail.ai.recommendation.enabled=true")
+@SpringBootTest(properties = {
+        "retail.ai.recommendation.enabled=true",
+        "retail.events.streams.enabled=false"
+})
 @AutoConfigureMockMvc
 class RecommendationAgentControllerIntegrationTest {
 

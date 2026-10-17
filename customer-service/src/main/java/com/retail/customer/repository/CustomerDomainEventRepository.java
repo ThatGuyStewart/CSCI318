@@ -23,6 +23,8 @@ public interface CustomerDomainEventRepository extends JpaRepository<CustomerDom
 
     List<CustomerDomainEvent> findByAggregateTypeOrderByOccurredAtAscAggregateVersionAsc(String aggregateType);
 
+    List<CustomerDomainEvent> findByAggregateTypeOrderByAggregateIdAscAggregateVersionAsc(String aggregateType);
+
     List<CustomerDomainEvent> findByAggregateTypeAndAggregateIdOrderByAggregateVersionAsc(
             String aggregateType, Long aggregateId);
 

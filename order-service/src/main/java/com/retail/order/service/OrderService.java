@@ -2,7 +2,6 @@ package com.retail.order.service;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -64,13 +63,17 @@ public class OrderService {
     private final ProductClient productClient;
     private final ObjectMapper objectMapper;
     private final DomainEventPublisher domainEventPublisher;
+    private final OrderProjectionService orderProjectionService;
+    private final boolean streamsEnabled;
     private final String eventTopic;
 
     public OrderService(OrderRepository orderRepository, OrderSummaryViewRepository orderSummaryViewRepository,
             OrderDomainEventRepository orderDomainEventRepository,
             CustomerClient customerClient,
             ProductClient productClient, ObjectMapper objectMapper,
-            DomainEventPublisher domainEventPublisher, @Value("${retail.events.topic}") String eventTopic) {
+            DomainEventPublisher domainEventPublisher, OrderProjectionService orderProjectionService,
+            @Value("${retail.events.streams.enabled:true}") boolean streamsEnabled,
+            @Value("${retail.events.topic}") String eventTopic) {
         this.orderRepository = orderRepository;
         this.orderSummaryViewRepository = orderSummaryViewRepository;
         this.orderDomainEventRepository = orderDomainEventRepository;
@@ -78,6 +81,8 @@ public class OrderService {
         this.productClient = productClient;
         this.objectMapper = objectMapper;
         this.domainEventPublisher = domainEventPublisher;
+        this.orderProjectionService = orderProjectionService;
+        this.streamsEnabled = streamsEnabled;
         this.eventTopic = eventTopic;
     }
 
@@ -99,7 +104,6 @@ public class OrderService {
             appendOrderEvent("BasketUsedForOrderEvent", saved, basketUsedVersion);
         }
 
-        upsertOrderSummary(saved, LocalDateTime.now(ZoneOffset.UTC));
         return toOrderResponse(saved);
     }
 
@@ -207,7 +211,6 @@ public class OrderService {
             order.nextAggregateVersion();
             Order saved = orderRepository.save(order);
             appendOrderEvent("OrderCancelledEvent", saved);
-            upsertOrderSummary(saved, existingCreatedAt(orderId));
             return toOrderResponse(saved);
         } else {
             order.nextAggregateVersion();
@@ -385,7 +388,6 @@ public class OrderService {
         order.nextAggregateVersion();
         Order saved = orderRepository.save(Objects.requireNonNull(order, ORDER_REQUIRED));
         appendOrderEvent("OrderStatusChangedEvent", saved);
-        upsertOrderSummary(saved, existingCreatedAt(orderId));
         return toOrderResponse(saved);
     }
 
@@ -400,11 +402,13 @@ public class OrderService {
                     order.getOrderId(), aggregateVersion, eventType, Instant.now(), null, null,
                     objectMapper.writeValueAsString(payload));
             orderDomainEventRepository.save(event);
-            domainEventPublisher.publish(eventTopic,
-                    new DomainEventMessage(event.getEventId(), event.getAggregateType(),
-                            event.getAggregateId(), event.getAggregateVersion(), event.getEventType(),
-                            event.getOccurredAt(),
-                            event.getCorrelationId(), event.getCausationId(), payload));
+            DomainEventMessage message = new DomainEventMessage(event.getEventId(), event.getAggregateType(),
+                    event.getAggregateId(), event.getAggregateVersion(), event.getEventType(), event.getOccurredAt(),
+                    event.getCorrelationId(), event.getCausationId(), payload);
+            domainEventPublisher.publish(eventTopic, message);
+            if (!streamsEnabled) {
+                orderProjectionService.apply(message);
+            }
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("Unable to serialize order event payload", exception);
         }
@@ -429,18 +433,6 @@ public class OrderService {
         payload.put("total", order.getTotal());
         payload.put("status", order.getStatus());
         return payload;
-    }
-
-    private void upsertOrderSummary(Order order, LocalDateTime createdAt) {
-        orderSummaryViewRepository.save(new OrderSummaryView(order.getOrderId(), order.getCustomerId(), order.getTotal(),
-                order.getStatus(), createdAt, order.getAddress(), order.getItems()));
-    }
-
-    private LocalDateTime existingCreatedAt(Long orderId) {
-        Long resolvedOrderId = Objects.requireNonNull(orderId, ORDER_ID_REQUIRED);
-        return orderSummaryViewRepository.findById(resolvedOrderId)
-                .map(view -> Objects.requireNonNull(view.getCreatedAt()))
-                .orElseGet(() -> LocalDateTime.now(ZoneOffset.UTC));
     }
 
     private DomainEventEnvelope toDomainEventEnvelope(OrderDomainEvent event) {

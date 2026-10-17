@@ -50,7 +50,9 @@ public class ProductService {
     private final ProductDomainEventRepository productDomainEventRepository;
     private final ObjectMapper objectMapper;
     private final DomainEventPublisher domainEventPublisher;
+    private final ProductProjectionService productProjectionService;
     private final String eventTopic;
+    private final boolean streamsEnabled;
     private final dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore<dev.langchain4j.data.segment.TextSegment> embeddingStore;
     private final Optional<dev.langchain4j.model.embedding.EmbeddingModel> embeddingModelOpt;
 
@@ -58,14 +60,18 @@ public class ProductService {
             ProductDomainEventRepository productDomainEventRepository,
             ObjectMapper objectMapper, DomainEventPublisher domainEventPublisher,
             @Value("${retail.events.topic}") String eventTopic,
+            @Value("${retail.events.streams.enabled:true}") boolean streamsEnabled,
             dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore<dev.langchain4j.data.segment.TextSegment> embeddingStore,
-            Optional<dev.langchain4j.model.embedding.EmbeddingModel> embeddingModelOpt) {
+            Optional<dev.langchain4j.model.embedding.EmbeddingModel> embeddingModelOpt,
+            ProductProjectionService productProjectionService) {
         this.productRepository = productRepository;
         this.productViewRepository = productViewRepository;
         this.productDomainEventRepository = productDomainEventRepository;
         this.objectMapper = objectMapper;
         this.domainEventPublisher = domainEventPublisher;
+        this.productProjectionService = productProjectionService;
         this.eventTopic = eventTopic;
+        this.streamsEnabled = streamsEnabled;
         this.embeddingStore = embeddingStore;
         this.embeddingModelOpt = embeddingModelOpt;
     }
@@ -152,7 +158,6 @@ public class ProductService {
         product.nextAggregateVersion();
         appendProductEvent("ProductDeletedEvent", product);
         productRepository.delete(Objects.requireNonNull(product, "Product to delete cannot be null"));
-        productViewRepository.deleteById(productId);
     }
 
     @Transactional(readOnly = true)
@@ -240,9 +245,13 @@ public class ProductService {
                     product.getProductId(), product.getCategory(), product.getAggregateVersion(), eventType, Instant.now(), null, null,
                     objectMapper.writeValueAsString(payload));
             productDomainEventRepository.save(event);
-            domainEventPublisher.publish(eventTopic, new DomainEventMessage(event.getEventId(), event.getAggregateType(),
+            DomainEventMessage message = new DomainEventMessage(event.getEventId(), event.getAggregateType(),
                     event.getAggregateId(), event.getAggregateVersion(), event.getEventType(), event.getOccurredAt(),
-                    event.getCorrelationId(), event.getCausationId(), payload));
+                    event.getCorrelationId(), event.getCausationId(), payload);
+            if (!streamsEnabled) {
+                productProjectionService.apply(message);
+            }
+            domainEventPublisher.publish(eventTopic, message);
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("Unable to serialize product event payload", exception);
         }
@@ -266,10 +275,6 @@ public class ProductService {
     }
 
     private void upsertProductView(Product product) {
-        ProductView pv = new ProductView(product.getProductId(), product.getName(), product.getCategory(),
-                product.getPrice(), product.getDescription());
-        productViewRepository.save(pv);
-
         // update embedding store entry for this product
         try {
             String text = buildTextFromProduct(product);

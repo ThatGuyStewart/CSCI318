@@ -16,8 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.retail.common.DomainEventMessage;
-import com.retail.common.DomainEventPublisher;
 import com.retail.customer.domain.Address;
 import com.retail.customer.domain.Basket;
 import com.retail.customer.domain.ContactMethod;
@@ -56,20 +54,18 @@ public class CustomerService {
     private final BasketRepository basketRepository;
     private final CustomerDomainEventRepository customerDomainEventRepository;
     private final ObjectMapper objectMapper;
-        private final DomainEventPublisher domainEventPublisher;
-        private final String eventTopic;
+    private final CustomerEventRecorder customerEventRecorder;
 
         public CustomerService(CustomerRepository customerRepository, CustomerViewRepository customerViewRepository,
             BasketRepository basketRepository,
             CustomerDomainEventRepository customerDomainEventRepository, ObjectMapper objectMapper,
-            DomainEventPublisher domainEventPublisher, @Value("${retail.events.topic}") String eventTopic) {
+            CustomerEventRecorder customerEventRecorder) {
         this.customerRepository = customerRepository;
         this.customerViewRepository = customerViewRepository;
         this.basketRepository = basketRepository;
         this.customerDomainEventRepository = customerDomainEventRepository;
         this.objectMapper = objectMapper;
-        this.domainEventPublisher = domainEventPublisher;
-        this.eventTopic = eventTopic;
+        this.customerEventRecorder = customerEventRecorder;
     }
 
     public CustomerResponse createCustomer(CustomerCreateRequest request) {
@@ -96,7 +92,6 @@ public class CustomerService {
         Basket basket = new Basket(savedCustomer.getCustomerId());
         basketRepository.save(basket);
         appendCustomerEvent("CustomerCreatedEvent", savedCustomer);
-        upsertCustomerView(savedCustomer, basket.getTotal());
 
         return toCustomerResponse(savedCustomer);
     }
@@ -246,7 +241,6 @@ public class CustomerService {
         customer.nextAggregateVersion();
         Customer updated = customerRepository.save(Objects.requireNonNull(customer, CUSTOMER_REQUIRED));
         appendCustomerEvent("CustomerUpdatedEvent", updated);
-        upsertCustomerView(updated, currentBasketTotal(customerId));
         return toCustomerResponse(updated);
     }
 
@@ -261,7 +255,6 @@ public class CustomerService {
         customer.nextAggregateVersion();
         Customer updated = customerRepository.save(Objects.requireNonNull(customer, CUSTOMER_REQUIRED));
         appendCustomerEvent("CustomerUpdatedEvent", updated);
-        upsertCustomerView(updated, currentBasketTotal(customerId));
 
         return toAddressResponse(customerId, address);
     }
@@ -276,24 +269,11 @@ public class CustomerService {
         appendCustomerEvent("CustomerDeletedEvent", customer);
         basketRepository.deleteById(customerId);
         customerRepository.delete(Objects.requireNonNull(customer, CUSTOMER_REQUIRED));
-        customerViewRepository.deleteById(customerId);
     }
 
     private void appendCustomerEvent(String eventType, Customer customer) {
         Map<String, Object> payload = customerPayload(customer);
-        String serializedPayload;
-        try {
-            serializedPayload = objectMapper.writeValueAsString(payload);
-        } catch (JsonProcessingException exception) {
-            throw new IllegalStateException("Unable to serialize customer event payload", exception);
-        }
-        CustomerDomainEvent event = new CustomerDomainEvent(UUID.randomUUID(), CUSTOMER_AGGREGATE_TYPE,
-            customer.getCustomerId(), customer.getEmail(), customer.getAggregateVersion(), eventType, Instant.now(), null, null,
-            serializedPayload);
-        customerDomainEventRepository.save(event);
-        domainEventPublisher.publish(eventTopic, new DomainEventMessage(event.getEventId(), event.getAggregateType(),
-            event.getAggregateId(), event.getAggregateVersion(), event.getEventType(), event.getOccurredAt(),
-            event.getCorrelationId(), event.getCausationId(), payload));
+        customerEventRecorder.record(customer, eventType, payload, null);
     }
 
     private void initializeAggregateVersion(Customer customer) {
@@ -312,11 +292,6 @@ public class CustomerService {
         payload.put("contactMethod", customer.getContactMethod());
         payload.put("address", toAddressDto(customer.getAddress()));
         return payload;
-    }
-
-    private void upsertCustomerView(Customer customer, Double basketTotal) {
-        customerViewRepository.save(new CustomerView(customer.getCustomerId(), customer.getName(), customer.getEmail(),
-                customer.getPhone(), customer.getContactMethod(), customer.getAddress(), basketTotal));
     }
 
     private Double currentBasketTotal(Long customerId) {

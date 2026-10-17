@@ -1,26 +1,18 @@
 package com.retail.customer.service;
 
-import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.retail.common.DomainEventMessage;
-import com.retail.common.DomainEventPublisher;
 import com.retail.customer.client.ProductClient;
 import com.retail.customer.domain.Basket;
 import com.retail.customer.domain.BasketItem;
 import com.retail.customer.domain.Customer;
-import com.retail.customer.domain.CustomerDomainEvent;
 import com.retail.customer.dto.BasketAddRequest;
 import com.retail.customer.dto.BasketItemResponse;
 import com.retail.customer.dto.BasketRemoveRequest;
@@ -46,23 +38,18 @@ public class BasketService {
     private final CustomerViewRepository customerViewRepository;
     private final CustomerDomainEventRepository customerDomainEventRepository;
     private final ProductClient productClient;
-    private final ObjectMapper objectMapper;
-        private final DomainEventPublisher domainEventPublisher;
-        private final String eventTopic;
+    private final CustomerEventRecorder customerEventRecorder;
 
         public BasketService(BasketRepository basketRepository, CustomerRepository customerRepository,
             CustomerViewRepository customerViewRepository,
             CustomerDomainEventRepository customerDomainEventRepository, ProductClient productClient,
-            ObjectMapper objectMapper, DomainEventPublisher domainEventPublisher,
-            @Value("${retail.events.topic}") String eventTopic) {
+            CustomerEventRecorder customerEventRecorder) {
         this.basketRepository = basketRepository;
         this.customerRepository = customerRepository;
         this.customerViewRepository = customerViewRepository;
         this.customerDomainEventRepository = customerDomainEventRepository;
         this.productClient = productClient;
-        this.objectMapper = objectMapper;
-        this.domainEventPublisher = domainEventPublisher;
-        this.eventTopic = eventTopic;
+        this.customerEventRecorder = customerEventRecorder;
     }
 
     @Transactional(readOnly = true)
@@ -105,8 +92,7 @@ public class BasketService {
         Basket saved = basketRepository.save(basket);
     customer.nextAggregateVersion();
     customerRepository.save(customer);
-        appendBasketEvent("BasketItemAddedEvent", customer, saved, request.getProductId(), request.getQuantity());
-        updateCustomerViewTotal(saved);
+    appendBasketEvent("BasketItemAddedEvent", customer, saved, request.getProductId(), request.getQuantity());
 
         return toBasketResponse(saved);
     }
@@ -129,7 +115,6 @@ public class BasketService {
         customer.nextAggregateVersion();
         customerRepository.save(customer);
         appendBasketEvent("BasketItemRemovedEvent", customer, saved, request.getProductId(), request.getQuantity());
-        updateCustomerViewTotal(saved);
 
         return toBasketResponse(saved);
     }
@@ -137,9 +122,19 @@ public class BasketService {
     public void clearBasket(Long customerId) {
         Long resolvedCustomerId = requireCustomerId(customerId);
         basketRepository.findById(resolvedCustomerId).ifPresent(basket -> {
+            if (basket.getItems().isEmpty()) {
+                return;
+            }
+            Customer customer = findCustomerForUpdate(resolvedCustomerId);
             basket.clear();
             Basket saved = basketRepository.save(basket);
-            updateCustomerViewTotal(saved);
+            customer.nextAggregateVersion();
+            customerRepository.save(customer);
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("customerId", saved.getCustomerId());
+            payload.put("items", List.of());
+            payload.put("total", saved.getTotal());
+            customerEventRecorder.record(customer, "BasketClearedEvent", payload, null);
         });
     }
 
@@ -164,25 +159,7 @@ public class BasketService {
         payload.put("quantity", quantity);
         payload.put("items", basket.getItems().stream().map(this::toBasketItemResponse).toList());
         payload.put("total", basket.getTotal());
-        try {
-            String serializedPayload = objectMapper.writeValueAsString(payload);
-            CustomerDomainEvent event = new CustomerDomainEvent(UUID.randomUUID(), CUSTOMER_AGGREGATE_TYPE,
-                    basket.getCustomerId(), null, customer.getAggregateVersion(), eventType, Instant.now(), null, null,
-                    serializedPayload);
-            customerDomainEventRepository.save(event);
-            domainEventPublisher.publish(eventTopic, new DomainEventMessage(event.getEventId(), event.getAggregateType(),
-                    event.getAggregateId(), event.getAggregateVersion(), event.getEventType(), event.getOccurredAt(),
-                    event.getCorrelationId(), event.getCausationId(), payload));
-        } catch (JsonProcessingException exception) {
-            throw new IllegalStateException("Unable to serialize basket event payload", exception);
-        }
-    }
-
-    private void updateCustomerViewTotal(Basket basket) {
-        customerViewRepository.findById(basket.getCustomerId()).ifPresent(view -> {
-            view.setBasketTotal(basket.getTotal());
-            customerViewRepository.save(view);
-        });
+        customerEventRecorder.record(customer, eventType, payload, null);
     }
 
     public BasketResponse toBasketResponse(Basket basket) {

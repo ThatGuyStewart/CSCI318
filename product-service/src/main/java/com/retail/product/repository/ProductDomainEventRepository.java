@@ -20,6 +20,8 @@ public interface ProductDomainEventRepository extends JpaRepository<ProductDomai
 
     List<ProductDomainEvent> findByAggregateTypeOrderByOccurredAtAscAggregateVersionAsc(String aggregateType);
 
+    List<ProductDomainEvent> findByAggregateTypeOrderByAggregateIdAscAggregateVersionAsc(String aggregateType);
+
     List<ProductDomainEvent> findByAggregateTypeAndAggregateIdOrderByAggregateVersionAsc(
             String aggregateType, Long aggregateId);
 

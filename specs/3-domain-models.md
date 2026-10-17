@@ -2,9 +2,9 @@
 
 
 
-This document defines the **write models**, **read models**, **aggregates**, **domain events**, **invariants**, and **projection rules** for the Online Retail Microservice System.
+This document describes the current **write models**, **read models**, **aggregates**, **domain events**, **invariants**, and **projection rules** for the Online Retail Microservice System. Event records are persisted alongside mutable entities; they are not currently the authoritative aggregate state.
 
-It reflects the updated architecture: **CQRS**, **event sourcing**, **aggregates**, **domain events**, and **AI‑driven DTO mapping**.
+It reflects the current architecture: **CQRS-style read models**, **domain events**, and **AI-driven product recommendations**.
 
 
 
@@ -20,7 +20,7 @@ It reflects the updated architecture: **CQRS**, **event sourcing**, **aggregates
 
 **Aggregate Root:** `Customer`
 
-**Entities / Value Objects:** `Address`, `Basket`, `Item`
+**Entities / Value Objects:** `Address`, `Basket`, `BasketItem`
 
 **Domain Events:**
 
@@ -30,6 +30,8 @@ It reflects the updated architecture: **CQRS**, **event sourcing**, **aggregates
 * `BasketItemAddedEvent`
 * `BasketItemRemovedEvent`
 * `BasketRecalculatedEvent`
+* `BasketClearedEvent`
+* `BasketClearedAfterOrderEvent`
 
 
 
@@ -49,7 +51,7 @@ It reflects the updated architecture: **CQRS**, **event sourcing**, **aggregates
 
 **Aggregate Root:** `Order`
 
-**Entities / Value Objects:** `Address`, `Item`
+**Entities / Value Objects:** `Address`, `OrderItem`
 
 **Domain Events:**
 
@@ -119,7 +121,7 @@ Represents a customer.
 
 ### 2.1.2 `Address` (Value Object)
 
-Represents a customer's residential address. It is a nested class within the Customer class.
+Represents a customer's residential address. It is a separate embeddable domain class.
 
 |Field Name|Type|Description|Constraints / Notes|
 |-|-|-|-|
@@ -143,8 +145,8 @@ Represents a collection of products a customer is interested in purchasing. Auto
 |Field Name|Type|Description|Constraints / Notes|
 |-|-|-|-|
 |`customerId`|`Long`|The customer id of the customer whose basket this is|Primary Identifier (same as customer id. A `customer` has only 1 `basket`)|
-|`items`|`HashMap<Long, Item>`|A list of products within the basket|The key is a `productId`, the value is an `Item` class. If the quantity of an `Item` in the `HashMap` becomes < 1, its key and value will be removed from the `HashMap`|
-|`total`|`Double`|The total cost of the items in the basket|Cannot be set manually. The value is derived from the sum of the `Item` `subtotal` values in `items`. This value should be updated automatically if any `subtotal` changes in an `Item` class, or if a `HashMap` entry is deleted within the `items` `HashMap`.|
+|`items`|`List<BasketItem>`|The products within the basket|Each item carries a `productId`. There should be at most one item per product; adding the same product increments its quantity. Items with quantity below 1 are removed.|
+|`total`|`Double`|The total cost of the items in the basket|Cannot be set manually. The value is derived from the sum of the item `subtotal` values and recalculated when items change.|
 
 
 
@@ -163,6 +165,8 @@ Represents a collection of products a customer is interested in purchasing. Auto
 * `BasketItemAddedEvent` – emitted when an item is added
 * `BasketItemRemovedEvent` – emitted when an item is removed
 * `BasketRecalculatedEvent` – emitted when an external product update changes basket items values (may require item subtotal and basket total to be recalculated); customer item additions and removals are represented by their respective item events
+* `BasketClearedEvent` – emitted when a non-empty basket is explicitly cleared
+* `BasketClearedAfterOrderEvent` – emitted by Customer Service after consuming `BasketUsedForOrderEvent`; its causation ID references the Order event
 
 
 
@@ -172,7 +176,7 @@ Represents a collection of products a customer is interested in purchasing. Auto
 
 ### 2.1.4 `Item` (Value Object)
 
-Represents a product within the Items HashMap of a customer's basket. This class should be updated if its corresponding product is updated.
+Represents a product within a customer's basket. This class should be updated if its corresponding product is updated.
 
 
 
@@ -180,7 +184,7 @@ Represents a product within the Items HashMap of a customer's basket. This class
 |-|-|-|-|
 |`name`|`String`|The product name|Cannot be set manually. Value derived from `Product` service by the `product` `id` given as the `items` key in a `customer` `basket`. This value should be updated automatically if the `product` `name` is updated.|
 |`price`|`Double`|The price of a single unit of this product|Cannot be set manually. Value derived from `Product` service by the `productId` given as the `items` key in a `customer` `basket`. This value should be automatically updated if the `product` `price` is updated|
-|`quantity`|`Int`|The number of units of this product within the basket|required. Positive value > 0. If a `basket` already contains this `product` and a number of this `product` is added to the `basket`, the `quantity` should be incremented by that amount, and similarly if a number of this `product` is removed from the `basket`, the `quantity` should be decremented by that amount. If the resulting `quantity` would become < 1, the corresponding `HashMap` entry will be automatically removed from the `basket`|
+|`quantity`|`Int`|The number of units of this product within the basket|required. Positive value > 0. If a basket already contains this product, adding or removing a quantity increments or decrements it. If the resulting quantity is less than 1, the corresponding list item is removed from the basket.|
 |`subtotal`|`Double`|The total price for the product|Not negative. Cannot be set manually. Value is derived from `unitPrice` \* `quantity`. It should be updated automatically if either `unitPrice` or `quantity` changes.|
 
 
@@ -241,7 +245,7 @@ Represents an order for a selection of products, and tracks the status of the or
 |`orderId`|`Long`|Unique order record identifier|Primary Identifier|
 |`customerId`|`Long`|Reference to the customer who placed the order|Required. Final.|
 |`address`|`Address`|The delivery address for the order|Optional. If an `address` is not supplied, the `address` of the `customer` with matching `customerId` will be automatically copied as the `address` for the `Order`. Final|
-|`items`|`HashMap<Long, Item>`|A list of products ordered|Required. Final. The key is a `productId`, the value is an `Item` class.|
+|`items`|`List<OrderItem>`|The products ordered|Required. Each item carries a `productId`, a product snapshot, and a quantity.|
 |`total`|`Double`|The total cost of the ordered products|Cannot be set manually. The value is derived from the sum of the `Item` `subtotal` values in `items`. Final|
 |`status`|`Enum`|The status of the order. Enum (`Placed`, `Pending`, `InTransit`, `Delivered`, `Cancelled`)|`Placed` by default|
 
@@ -301,7 +305,7 @@ Represents a delivery address for an order. (Same as 2.2 `Address` but all field
 
 ### 2.3.3 `Item` (Value Object)
 
-Represents a product within the Items HashMap of a customer's basket. This class should be updated if its corresponding product is updated.
+Represents a product within an order. Item values are snapshots captured when the order is placed.
 
 
 
@@ -348,9 +352,9 @@ Represents a notification to a customer.
 
 
 
-Read models are projections updated by domain events.
+Read models are persisted query views.
 
-CustomerView, ProductView, and OrderSummaryView are separate persisted read models updated by projectors.
+CustomerView, ProductView, OrderSummaryView, and NotificationView are persisted read models. Each is updated from its service-owned Kafka Streams topology and can be rebuilt from that service's persisted event log. Notification Service remains CRUD-based; its event log records notification creation, not aggregate state transitions.
 
 
 
@@ -364,7 +368,7 @@ CustomerView, ProductView, and OrderSummaryView are separate persisted read mode
 |phone|String|
 |contactMethod|Enum (Phone, Email)|
 |address|Address|
-|basket|Basket|
+|basketTotal|Double|
 
 Owner: Customer aggregate
 
@@ -378,6 +382,8 @@ Updated by:
 * `BasketItemAddedEvent`
 * `BasketItemRemovedEvent`
 * `BasketRecalculatedEvent`
+* `BasketClearedEvent`
+* `BasketClearedAfterOrderEvent`
 
 
 
@@ -418,7 +424,7 @@ Updated by:
 |-|-|
 |orderId|Long|
 |customerId|Long|
-|items|HashMap<Long, Item>|
+|items|List<OrderItem>|
 |total|Double|
 |address|Address|
 |status|Enum|
@@ -433,8 +439,10 @@ Owner: Order aggregate
 Updated by:
 
 * `OrderPlacedEvent`
+* `BasketUsedForOrderEvent`
 * `OrderStatusChangedEvent`
 * `OrderCancelledEvent`
+* `OrderCancelFailedEvent`
 
 
 
@@ -448,11 +456,11 @@ Updated by:
 
 
 
-## Event Store
+## Persisted Event Records
 
-Customer, Product, and Order services own an append-only event store.
-Events are never updated or deleted.
-Aggregate state is rebuilt by replaying events, optionally from snapshots.
+Customer, Product, and Order services persist append-only domain-event records in their service databases.
+Events are not updated or deleted by application operations.
+CustomerView, ProductView, OrderSummaryView, and NotificationView can be rebuilt from their owning service's persisted events. CustomerView replay also reconciles its basket total from the current mutable Basket state for compatibility with historical checkouts that did not write a Customer basket-clear event. Notification remains CRUD-based; its events describe notification creation. No aggregate snapshot or full event-sourcing mechanism is implemented.
 
 
 
@@ -486,10 +494,7 @@ Consumes:
 
 ## Order Service
 
-Consumes `customer.events`:
-
-* `CustomerUpdatedEvent` (optional).
-* Consumer records processed `eventId` values to prevent duplicate application.
+Order Service currently uses its REST clients to obtain customer information when processing commands. It does not consume `customer.events`.
 
 
 
@@ -535,4 +540,3 @@ Example:
 
 
 \*\*End of file\*\*
-

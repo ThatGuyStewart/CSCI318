@@ -3,6 +3,7 @@ package com.retail.notification;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
@@ -28,6 +29,7 @@ import com.retail.common.DomainEventPublisher;
 import com.retail.notification.client.CustomerClient;
 import com.retail.notification.domain.Notification;
 import com.retail.notification.domain.NotificationDomainEvent;
+import com.retail.notification.domain.NotificationProjectionCheckpoint;
 import com.retail.notification.dto.AddressDto;
 import com.retail.notification.dto.CustomerDto;
 import com.retail.notification.dto.NotificationAreaBroadcastRequest;
@@ -37,8 +39,14 @@ import com.retail.notification.dto.NotificationResponse;
 import com.retail.notification.repository.NotificationDomainEventRepository;
 import com.retail.notification.repository.NotificationRepository;
 import com.retail.notification.repository.NotificationViewRepository;
+import com.retail.notification.repository.NotificationProjectionCheckpointRepository;
+import com.retail.notification.service.NotificationProjectionRebuilder;
+import com.retail.notification.service.NotificationProjectionService;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+                "retail.events.streams.enabled=false",
+                "retail.events.consumer.enabled=false"
+})
 @AutoConfigureMockMvc
 @SuppressWarnings({ "null", "unused" })
 class NotificationServiceIntegrationTest {
@@ -57,6 +65,15 @@ class NotificationServiceIntegrationTest {
 
         @Autowired
         private NotificationViewRepository notificationViewRepository;
+
+        @Autowired
+        private NotificationProjectionRebuilder notificationProjectionRebuilder;
+
+        @Autowired
+        private NotificationProjectionService notificationProjectionService;
+
+        @Autowired
+        private NotificationProjectionCheckpointRepository notificationProjectionCheckpointRepository;
 
         @MockitoBean
         private CustomerClient customerClient;
@@ -115,6 +132,67 @@ class NotificationServiceIntegrationTest {
                 verify(domainEventPublisher).publish(
                                 org.mockito.ArgumentMatchers.eq("notification.events"),
                                 org.mockito.ArgumentMatchers.any(DomainEventMessage.class));
+        }
+
+        @Test
+        void replayRebuildsNotificationViewFromPersistedEvents() throws Exception {
+                NotificationCreateRequest request = new NotificationCreateRequest("Replay this notification");
+                String response = mockMvc.perform(post("/notification/customer/1")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isCreated())
+                                .andReturn().getResponse().getContentAsString();
+                NotificationResponse created = objectMapper.readValue(response, NotificationResponse.class);
+
+                notificationProjectionRebuilder.rebuild();
+
+                var rebuilt = notificationViewRepository.findById(created.getNotificationId()).orElseThrow();
+                org.junit.jupiter.api.Assertions.assertEquals("Replay this notification", rebuilt.getMessage());
+                org.junit.jupiter.api.Assertions.assertEquals(1,
+                        notificationProjectionCheckpointRepository.findById(created.getNotificationId()).orElseThrow()
+                                .getAggregateVersion());
+
+                NotificationDomainEvent createdEvent = notificationDomainEventRepository
+                                .findByAggregateTypeAndAggregateIdOrderByAggregateVersionAsc("Notification",
+                                                created.getNotificationId())
+                                .getFirst();
+                var payload = objectMapper.readValue(createdEvent.getPayload(),
+                                new com.fasterxml.jackson.core.type.TypeReference<java.util.Map<String, Object>>() { });
+                DomainEventMessage duplicate = new DomainEventMessage(createdEvent.getEventId(),
+                                createdEvent.getAggregateType(), createdEvent.getAggregateId(),
+                                createdEvent.getAggregateVersion(), createdEvent.getEventType(),
+                                createdEvent.getOccurredAt(), createdEvent.getCorrelationId(),
+                                createdEvent.getCausationId(), payload);
+                org.junit.jupiter.api.Assertions.assertFalse(notificationProjectionService.apply(duplicate));
+        }
+
+        @Test
+        void failedReplayRetainsTheExistingNotificationProjection() throws Exception {
+                NotificationCreateRequest request = new NotificationCreateRequest("Keep this notification");
+                String response = mockMvc.perform(post("/notification/customer/1")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isCreated())
+                                .andReturn().getResponse().getContentAsString();
+                NotificationResponse created = objectMapper.readValue(response, NotificationResponse.class);
+                var before = notificationViewRepository.findById(created.getNotificationId()).orElseThrow();
+                NotificationDomainEvent invalidEvent = new NotificationDomainEvent(UUID.randomUUID(), "Notification",
+                                created.getNotificationId(), 2, "NotificationCreatedEvent",
+                                java.time.Instant.now(), null, null, "not-json");
+                notificationDomainEventRepository.save(invalidEvent);
+
+                try {
+                        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                                        notificationProjectionRebuilder::rebuild);
+                        org.junit.jupiter.api.Assertions.assertEquals(before.getMessage(),
+                                        notificationViewRepository.findById(created.getNotificationId()).orElseThrow()
+                                                        .getMessage());
+                        NotificationProjectionCheckpoint checkpoint = notificationProjectionCheckpointRepository
+                                        .findById(created.getNotificationId()).orElseThrow();
+                        org.junit.jupiter.api.Assertions.assertEquals(1, checkpoint.getAggregateVersion());
+                } finally {
+                        notificationDomainEventRepository.deleteById(invalidEvent.getEventId());
+                }
         }
 
         @Test

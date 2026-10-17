@@ -1,6 +1,7 @@
 package com.retail.customer.consumer;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -16,16 +17,14 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.retail.common.DomainEventMessage;
-import com.retail.common.DomainEventPublisher;
 import com.retail.customer.domain.Basket;
 import com.retail.customer.domain.Customer;
 import com.retail.customer.repository.BasketRepository;
-import com.retail.customer.repository.CustomerViewRepository;
 import com.retail.customer.repository.CustomerDomainEventRepository;
 import com.retail.customer.repository.CustomerRepository;
 import com.retail.customer.repository.ProcessedProductEventRepository;
+import com.retail.customer.service.CustomerEventRecorder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -40,16 +39,13 @@ class ProductEventConsumerTest {
     private ProcessedProductEventRepository processedProductEventRepository;
 
     @Mock
-    private CustomerViewRepository customerViewRepository;
-
-    @Mock
     private CustomerRepository customerRepository;
 
     @Mock
     private CustomerDomainEventRepository customerDomainEventRepository;
 
     @Mock
-    private DomainEventPublisher domainEventPublisher;
+    private CustomerEventRecorder customerEventRecorder;
 
     @Test
     void updatesMatchingBasketItemsAndRecordsTheEvent() {
@@ -77,7 +73,8 @@ class ProductEventConsumerTest {
         assertThat(savedBasket.getValue().getTotal()).isEqualTo(25.0);
         verify(basketRepository, never()).save(otherBasket);
         verify(basketRepository, never()).findAll();
-        verify(domainEventPublisher).publish(org.mockito.ArgumentMatchers.eq("customer.events"), any(DomainEventMessage.class));
+        verify(customerEventRecorder).record(any(Customer.class), eq("BasketRecalculatedEvent"), any(),
+                eq(event.eventId()));
     }
 
     @Test
@@ -112,7 +109,8 @@ class ProductEventConsumerTest {
         assertThat(matchingBasket.getItems().getFirst().getName()).isEqualTo("Existing name");
         assertThat(matchingBasket.getItems().getFirst().getPrice()).isEqualTo(12.5);
         assertThat(matchingBasket.getTotal()).isEqualTo(25.0);
-        verify(domainEventPublisher).publish(org.mockito.ArgumentMatchers.eq("customer.events"), any(DomainEventMessage.class));
+        verify(customerEventRecorder).record(any(Customer.class), eq("BasketRecalculatedEvent"), any(),
+                eq(event.eventId()));
     }
 
     @Test
@@ -127,7 +125,7 @@ class ProductEventConsumerTest {
         consumer().onProductEvent(event);
 
         verify(basketRepository, never()).save(any());
-        verify(domainEventPublisher, never()).publish(any(), any());
+        verify(customerEventRecorder, never()).record(any(), any(), any(), any());
     }
 
     @Test
@@ -146,7 +144,8 @@ class ProductEventConsumerTest {
 
         consumer().onProductEvent(event);
 
-        verify(domainEventPublisher).publish(org.mockito.ArgumentMatchers.eq("customer.events"), any(DomainEventMessage.class));
+        verify(customerEventRecorder).record(any(Customer.class), eq("BasketRecalculatedEvent"), any(),
+                eq(event.eventId()));
     }
 
     @Test
@@ -167,7 +166,8 @@ class ProductEventConsumerTest {
 
         assertThat(matchingBasket.getItems()).isEmpty();
         assertThat(matchingBasket.getTotal()).isEqualTo(0.0);
-        verify(domainEventPublisher).publish(org.mockito.ArgumentMatchers.eq("customer.events"), any(DomainEventMessage.class));
+        verify(customerEventRecorder).record(any(Customer.class), eq("BasketRecalculatedEvent"), any(),
+                eq(event.eventId()));
     }
 
     private DomainEventMessage productUpdatedEvent(UUID eventId) {
@@ -176,8 +176,7 @@ class ProductEventConsumerTest {
     }
 
     private ProductEventConsumer consumer() {
-        return new ProductEventConsumer(basketRepository, processedProductEventRepository, customerViewRepository,
-                customerRepository, customerDomainEventRepository, new ObjectMapper(), domainEventPublisher,
-                "customer.events");
+        return new ProductEventConsumer(basketRepository, processedProductEventRepository, customerRepository,
+                customerDomainEventRepository, customerEventRecorder);
     }
 }
