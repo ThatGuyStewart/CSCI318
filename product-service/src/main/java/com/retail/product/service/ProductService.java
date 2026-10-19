@@ -14,6 +14,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -158,6 +160,17 @@ public class ProductService {
         product.nextAggregateVersion();
         appendProductEvent("ProductDeletedEvent", product);
         productRepository.delete(Objects.requireNonNull(product, "Product to delete cannot be null"));
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    embeddingStore.remove(String.valueOf(productId));
+                } catch (RuntimeException exception) {
+                    log.warn("Failed to remove embedding for deleted product {}: exception={}",
+                            productId, exception.getClass().getName());
+                }
+            }
+        });
     }
 
     @Transactional(readOnly = true)

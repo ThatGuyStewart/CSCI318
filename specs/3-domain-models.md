@@ -92,7 +92,7 @@ Represents a customer.
 |`customerId`|`Long`|Unique identifier for the customer|Primary Identifier|
 |`name`|`String`|Name of the customer|Required|
 |`email`|`String`|Email address of the customer|Required. Unique|
-|`phone`|`String`|Phone number of the customer|Required. Unique, not negative|
+|`phone`|`String`|Phone number of the customer|Required nonblank string. Unique; no numeric or phone-pattern validation|
 |`contactMethod`|`Enum`|Customer's preferred contact method. ContactMethod (`Email`, `Phone`)|`Email` by default|
 |`address`|`Address`|Customer's residential address|Required|
 
@@ -101,7 +101,7 @@ Represents a customer.
 ### Invariants
 
 * Email and phone must be unique.
-* Phone must be positive.
+* Name, email and phone must be nonblank on creation. Email syntax and numeric phone positivity are not validated.
 * Address must satisfy its own invariants.
 
 
@@ -153,7 +153,7 @@ Represents a collection of products a customer is interested in purchasing. Auto
 ### Domain Rules
 
 * Total is derived from item subtotals.
-* Removing quantity < 1 removes the item entirely.
+* Add/remove request quantities must be positive; invalid quantities return 400. A removal whose resulting quantity is below 1 removes the item entirely.
 * Updating a product's name or price triggers basket item updates via `ProductUpdatedEvent`.
 * Placing an order containing basket contents triggers the removal all products from basket, via `BasketUsedForOrderEvent`.
 * Basket total recalculates automatically.
@@ -174,7 +174,7 @@ Represents a collection of products a customer is interested in purchasing. Auto
 
 
 
-### 2.1.4 `Item` (Value Object)
+### 2.1.4 `BasketItem` (Embeddable Value Object)
 
 Represents a product within a customer's basket. This class should be updated if its corresponding product is updated.
 
@@ -182,10 +182,13 @@ Represents a product within a customer's basket. This class should be updated if
 
 |Field Name|Type|Description|Constraints / Notes|
 |-|-|-|-|
-|`name`|`String`|The product name|Cannot be set manually. Value derived from `Product` service by the `product` `id` given as the `items` key in a `customer` `basket`. This value should be updated automatically if the `product` `name` is updated.|
-|`price`|`Double`|The price of a single unit of this product|Cannot be set manually. Value derived from `Product` service by the `productId` given as the `items` key in a `customer` `basket`. This value should be automatically updated if the `product` `price` is updated|
+|`productId`|`Long`|Product identifier|List element field, not a map key|
+|`name`|`String`|The product name|Resolved through Product Service; ProductUpdatedEvent refreshes it asynchronously|
+|`price`|`Double`|The price of a single unit|Resolved through Product Service; ProductUpdatedEvent refreshes it asynchronously|
 |`quantity`|`Int`|The number of units of this product within the basket|required. Positive value > 0. If a basket already contains this product, adding or removing a quantity increments or decrements it. If the resulting quantity is less than 1, the corresponding list item is removed from the basket.|
-|`subtotal`|`Double`|The total price for the product|Not negative. Cannot be set manually. Value is derived from `unitPrice` \* `quantity`. It should be updated automatically if either `unitPrice` or `quantity` changes.|
+|`subtotal`|`Double`|The total price for the product|Derived from `price` * `quantity`|
+
+Implementation limitation: a missing Product lookup (404/empty) uses the name `Product <id>` and price 10.0 instead of rejecting the basket item. A downstream connectivity/error response is handled as a service-unavailable error.
 
 
 
@@ -204,9 +207,9 @@ Represents a product.
 |Field Name|Type|Description|Constraints / Notes|
 |-|-|-|-|
 |`productId`|`Long`|Unique product identifier|Primary Identifier|
-|`name`|`String`|Name of the product|Required. Unique. If changed, automatically updates all `name` fields in `Item` classes in `Customer` `Basket` `items` whose key matches `productId`|
+|`name`|`String`|Name of the product|Required. Unique. ProductUpdatedEvent asynchronously updates matching BasketItem.productId entries|
 |`category`|`Enum`|The category of products the product is in. Enum (`Electronics`, `Appliances`, `Furniture`, `Kitchen`, `Tools`, `Garden`, `Sports`, `Toys`, `Automotive`, `Pets`, `Apparel`, `Beauty`, `Grocery`, `Media`, `Professional`, `Lifestyle`)|Required|
-|`price`|`Double`|The price for a single unit of the product|Required. If changed, automatically updates all `price` fields in `Item` classes in `Customer` `Basket` `items` whose key matches `productId`|
+|`price`|`Double`|The price for a single unit of the product|Required and positive. Changes update matching basket items asynchronously; existing order snapshots are unchanged|
 |`description`|`String`|A brief description of the product|Optional|
 
 
@@ -243,10 +246,10 @@ Represents an order for a selection of products, and tracks the status of the or
 |Field Name|Type|Description|Constraints / Notes|
 |-|-|-|-|
 |`orderId`|`Long`|Unique order record identifier|Primary Identifier|
-|`customerId`|`Long`|Reference to the customer who placed the order|Required. Final.|
-|`address`|`Address`|The delivery address for the order|Optional. If an `address` is not supplied, the `address` of the `customer` with matching `customerId` will be automatically copied as the `address` for the `Order`. Final|
+|`customerId`|`Long`|Reference to the customer who placed the order|Required; captured at creation|
+|`address`|`Address`|Delivery-address snapshot|Required after resolution; omitted request address is copied from the customer|
 |`items`|`List<OrderItem>`|The products ordered|Required. Each item carries a `productId`, a product snapshot, and a quantity.|
-|`total`|`Double`|The total cost of the ordered products|Cannot be set manually. The value is derived from the sum of the `Item` `subtotal` values in `items`. Final|
+|`total`|`Double`|The total cost of the ordered products|Derived from the sum of OrderItem subtotals; snapshot semantics, not Java final fields|
 |`status`|`Enum`|The status of the order. Enum (`Placed`, `Pending`, `InTransit`, `Delivered`, `Cancelled`)|`Placed` by default|
 
 
@@ -260,10 +263,10 @@ Represents an order for a selection of products, and tracks the status of the or
 
 
 * If the customer provides a product ID and quantity: The order contains the given quantity of the product matching the ID
-* If the customer provides no product ID: The order contains the products in the customer's basket and their basket becomes empty
+* If items are omitted/null, the order uses basket contents and publishes BasketUsedForOrderEvent to clear the basket asynchronously. An explicit empty items list is invalid; explicit item-list checkout does not clear the basket.
 * If the customer provides an address: The address for the order is the address provided
 * If the customer provides no address: The address for the order is the address located in the customer's record.
-* When an order is successfully created, its status is "Placed" and a notification is automatically generated, notifying the customer that the order has been placed
+* A new order has status "Placed". Kafka-driven notification recording is asynchronous, not a direct call or external delivery.
 
 
 
@@ -297,13 +300,13 @@ Represents an order for a selection of products, and tracks the status of the or
 
 ### 2.3.2 `Address` (Value Object)
 
-Represents a delivery address for an order. (Same as 2.2 `Address` but all fields are final).
+Represents the delivery-address snapshot for an order (same fields as section 2.1.2). Omitting the address in a create request copies the customer's address; a resolved address is required. Snapshot semantics do not mean the Java fields are declared `final`.
 
 \---
 
 
 
-### 2.3.3 `Item` (Value Object)
+### 2.3.3 `OrderItem` (Embeddable Value Object)
 
 Represents a product within an order. Item values are snapshots captured when the order is placed.
 
@@ -311,10 +314,11 @@ Represents a product within an order. Item values are snapshots captured when th
 
 |Field Name|Type|Description|Constraints / Notes|
 |-|-|-|-|
-|`name`|`String`|The product name|Cannot be set manually. Value derived from `Product` service by the `product` `id` given as the `items` key in an `Order`. Final|
-|`price`|`Double`|The price of a single unit of this product|Cannot be set manually. Value derived from `Product` service by the `product` `id` given as the `items` key in an `Order`. Final|
-|`quantity`|`Int`|The number of units of the product ordered|required. Positive value > 0. Final|
-|`subtotal`|`Double`|The total price for the product|Not negative. Cannot be set manually. Value is derived from `unitPrice` \* `quantity`. Final|
+|`productId`|`Long`|Product identifier|List element field|
+|`name`|`String`|Product name snapshot|Resolved from Product for explicit items, or from Basket for basket checkout|
+|`price`|`Double`|Unit price snapshot|Resolved server-side; not updated by later Product events|
+|`quantity`|`Int`|Number of units ordered|Required, positive|
+|`subtotal`|`Double`|Total price for the item|Derived from `price` * `quantity`|
 
 \---
 
@@ -338,9 +342,9 @@ Represents a notification to a customer.
 |-|-|-|-|
 |`notificationId`|`Long`|Unique notification record identifier|Primary Identifier|
 |`customerId`|`Long`|Customer receiving the notification|Required|
-|`type`|`Enum`|Method used to deliver the message.|Automatically uses the `contactMethod` of the `customer`|
+|`type`|`Enum`|Selected delivery type (Email, Phone)|Uses the customer's contactMethod; no external delivery provider is implemented|
 |`message`|`String`|The message being delivered to the customer|Required|
-|`sentAt`|`LocalDateTime`|Date and time when notification was sent|Set on creation|
+|`sent`|`LocalDateTime`|Notification record creation time|Exposed as `sentAt` in response/event DTOs; not proof of external delivery|
 
 \---
 
@@ -399,6 +403,8 @@ Updated by:
 |name|String|
 |category|Enum|
 |price|Double|
+|description|String|
+|aggregateVersion|Long|
 
 
 
@@ -429,6 +435,7 @@ Updated by:
 |address|Address|
 |status|Enum|
 |createdAt|LocalDateTime|
+|productIds|List<Long>|
 
 
 
@@ -452,13 +459,27 @@ Updated by:
 
 
 
+## 3.4 NotificationView
+
+|Field|Type|
+|-|-|
+|notificationId|Long|
+|customerId|Long|
+|type|DeliveryType (Email, Phone)|
+|message|String|
+|sent|LocalDateTime|
+
+Updated by `NotificationCreatedEvent`. Its `sent` field maps to `sentAt` in the API response.
+
+All four services also persist aggregate-version checkpoints for projection idempotency. ProductView additionally stores aggregateVersion on the view itself.
+
 # 4\. Domain Events
 
 
 
 ## Persisted Event Records
 
-Customer, Product, and Order services persist append-only domain-event records in their service databases.
+Customer, Product, Order and Notification services persist append-only domain-event records in their service databases.
 Events are not updated or deleted by application operations.
 CustomerView, ProductView, OrderSummaryView, and NotificationView can be rebuilt from their owning service's persisted events. CustomerView replay also reconciles its basket total from the current mutable Basket state for compatibility with historical checkouts that did not write a Customer basket-clear event. Notification remains CRUD-based; its events describe notification creation. No aggregate snapshot or full event-sourcing mechanism is implemented.
 
@@ -468,6 +489,7 @@ CustomerView, ProductView, OrderSummaryView, and NotificationView can be rebuilt
 
 # 5\. Event Consumption Rules
 
+All four services consume their own event topic through Kafka Streams to update their projection. The following rules describe additional cross-service listeners.
 
 
 ## Customer Service
@@ -488,7 +510,7 @@ Consumes `order.events`:
 
 Consumes:
 
-* None (source of product events)
+* No additional cross-service topics (its own product.events projection is still consumed).
 
 
 
@@ -517,21 +539,9 @@ Consumes `order.events`:
 
 
 
-Natural language → Intent → DTO → Command → Event
+Natural language -> RecommendationAgent -> read-only Tools -> product IDs -> catalogue-validated ProductResponse list
 
-
-
-Example:
-
-* “Add 3 drills to my basket”
-
-&#x20; → Intent: AddBasketItem
-
-&#x20; → DTO: `BasketAddRequest(productId=..., quantity=3)`
-
-&#x20; → Command: AddItemToBasket
-
-&#x20; → Event: `BasketItemAddedEvent`
+The implemented agent recommends products only; it cannot add basket items, place orders or issue other commands. See [7-AI-agent.md](7-AI-agent.md).
 
 
 

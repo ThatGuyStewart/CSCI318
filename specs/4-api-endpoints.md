@@ -2,11 +2,11 @@
 
 ## CQRS and Event-Sourcing Contract
 
-`POST`, `PUT`, and `DELETE` operations are commands. A command validates its input, appends immutable domain events to the owning service's event store, and publishes those events to Kafka. `GET` operations are queries: they read service-owned projections only and do not invoke command handlers or write events.
+`POST`, `PUT`, and `DELETE` operations are commands. State-changing commands append domain events alongside mutable entities and queue publication through the transactional outbox by default. Resource queries generally use service-owned projections; event-history queries read persisted event records. Basket queries read the mutable Basket table after a CustomerView existence check (the implementation can create a missing basket). The recommendation GET also updates in-memory conversation state, not business aggregates.
 
 Read projections are eventually consistent with accepted commands. Event-query endpoints return persisted `DomainEventEnvelope` records rather than events reconstructed from the current state of an aggregate.
 
-|Service|Publishes|Consumes|
+|Service|Publishes|Cross-service listeners consume|
 |-|-|-|
 |Customer Service|`customer.events`|`product.events`, `order.events`|
 |Product Service|`product.events`|None|
@@ -54,7 +54,7 @@ Each service consumes its own event topic with Kafka Streams to maintain its rea
 |**P3**|`GET`|`/product/event`|Optional Query params `date`, or `from` and `to`|`200 OK` (`Array<DomainEventEnvelope>`)|*None*|Read persisted product events, optionally filtered by an inclusive date range|
 |**P3**|`GET`|`/product/{id}/event`|Optional Query params `date`, or `from` and `to`|`200 OK` (`Array<DomainEventEnvelope>`)|*None*|Read persisted product events by aggregate id|
 |**P3**|`GET`|`/product/category/{category}/event`|Optional Query params `date`, or `from` and `to`|`200 OK` (`Array<DomainEventEnvelope>`)|*None*|Read persisted product events by category|
-||`GET`|`/product/recommendation`|`RecommendationRequest` (`sessionId`, `message`)|`200 OK` (`RecommendationResponse`)|*None*|AI customer-support query; see `7-AI-agent.md`|
+|**AI**|`GET`|`/product/recommendation`|Query params: required `message`, optional `sessionId`; no body|`200 OK` (`RecommendationResponse`)|Customer and Order queries when profile tools are used|Read-only product recommendations; see `7-AI-agent.md`|
 
 ## 
 
@@ -95,3 +95,14 @@ Each service consumes its own event topic with Kafka Streams to maintain its rea
 |**N1**|`GET`|`/notification/date/{date}`|*None*|`200 OK` (`Array<NotificationResponse>`)|*None*|View notifications issued on a date|
 |**N1**|`GET`|`/notification/date-range`|Required query params `from`, `to`|`200 OK` (`Array<NotificationResponse>`)|*None*|View notifications issued within an inclusive date range|
 |**N1**|`GET`|`/notification/{id}`|*None*|`200 OK` (`NotificationResponse`)|*None*|View a notification by id|
+
+## Behaviour and Error Notes
+
+* Roles are descriptive only: authentication and authorisation are not implemented.
+* Order creation accepts an explicit non-empty `items` list or uses the customer's basket when `items` is omitted/null. Basket checkout also calls `GET /customer/{id}/basket`, publishes `BasketUsedForOrderEvent` and clears the basket asynchronously.
+* Ineligible cancellation returns `200 OK` with unchanged status and publishes `OrderCancelFailedEvent`; it is not a `400` cancellation rejection.
+* Status updates accept the OrderStatus enum without enforcing a forward-only transition graph.
+* Notification operations create records, not external email/SMS deliveries. The listener handles order placement, successful cancellation and failed cancellation, not ordinary status changes.
+* Validation/not-found/conflict errors use `400`/`404`/`409` where handled; downstream REST failures use `503` where mapped by the service. Recommendation availability errors also use `503`. Invalid model output can produce a tolerant `200` response rather than always failing.
+* Event-history filters use UTC dates. Notification date filters use local `LocalDateTime`; `date` cannot be combined with `from`/`to`, and notification ranges require both endpoints.
+* Basket product lookup returns a fallback name and price of 10.0 when Product returns no product (404/empty). Unreachable/erroring Product calls raise `503`; product absence is not currently rejected by the basket service.

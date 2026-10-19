@@ -1,155 +1,123 @@
 # AI Product Recommendation Agent Specification
 
-## Purpose
+## Purpose and Implemented Scope
 
-This document specifies the Product Recommendation AI agent to be implemented in the `product-service` module of this repository. The agent accepts a user's natural-language product request, consults repository-backed query tools (product repository and internal read-only service clients), and returns a validated recommendation response. The agent is strictly read-only and returns a well-structured JSON recommendation object.
+Product Service implements a read-only, conversational product recommendation agent. It accepts natural-language requests, uses catalogue query tools and optional customer-preference summaries, and returns a message plus at most five products from the current `ProductView` repository.
 
-When the request contains an explicit name, email address, or phone number the system MAY resolve identity to derive a minimal, non-identifying preference profile (product IDs and category counts) used only as an internal ranking signal. Identity or raw order history must never appear in the agent's returned JSON `message` or in the HTTP response.
+The agent does not modify customers, products, baskets, orders, notifications, events or projections. It is not a natural-language command interface for purchasing or basket management.
 
-The agent must not create, update, delete, cancel, or otherwise mutate customers, products, baskets, orders, notifications, events, or projections.
+## Implementation and Dependencies
 
-## Repository Context
+- `com.retail.product.service.RecommendationAgent` is a LangChain4j AI Service interface using `@SystemMessage`, `@MemoryId` and `@UserMessage`. It is built programmatically with `AiServices`, not an `@AiService`-annotated component.
+- `com.retail.product.agentic.AgentConfiguration` wires the model, tools, in-memory embedding store and conversation memory.
+- `Tools` exposes read-only `@Tool` methods. It reads Product projections directly and uses `RestTemplate` for Customer and Order queries; dedicated `CustomerServiceClient` / `OrderServiceClient` abstractions are not implemented for this agent.
+- `LangChain4jProductIngestor` populates the embedding store on startup.
+- `RetryingRecommendationAgent` retries agent construction every five seconds when no `ChatModel` bean is available. This is not a guarantee of recovery from every provider startup or network failure.
+- Dependencies are in `product-service/pom.xml`: LangChain4j core is `1.0.0`; provider starters and the AllMiniLmL6V2 embedding integration use `1.0.0-beta5`.
 
-- Services present: `product-service`, `customer-service`, `order-service`, `notification-service`.
-- See `product-service/AI_MODEL_CONFIG.md` and `product-service/OLLAMA_SETUP.md` for existing AI provider notes and local model setup.
-- Build system: Maven; service modules have their own `pom.xml` files (add dependencies only to `product-service/pom.xml`).
+## Provider Configuration
 
-## Technology and Configuration
+The current model API is `ChatModel`. Spring profiles select the chat provider:
 
-- Add LangChain4j and integration dependencies only to `product-service/pom.xml`, with versions pinned via a Maven property at the top of that file.
-- Provide a single configurable `ChatLanguageModel` provider implementation (local Ollama or a cloud provider). Use the existing `product-service/AI_MODEL_CONFIG.md` to document environment variables and example configuration.
-- Provider credentials and endpoints MUST be supplied via environment variables (e.g. `OLLAMA_URL`, `OLLAMA_MODEL`, `OPENAI_API_KEY`); do not commit secrets or log them.
-- `product-service` must start and operate normally when AI is disabled or misconfigured; in those cases the recommendation endpoint MUST return `503 Service Unavailable` with a non-sensitive message.
-- Configure internal service URLs via properties such as `order.service.url` and `customer.service.url` in `application.yml` / `application.properties` for `product-service`.
-- Conversation memory is bounded and in-memory only, keyed by `sessionId`. Retain at most 20 messages per session and redact PII before storing. Memory must be ephemeral and cleared on restart.
+| Setting | Default / behaviour |
+|---|---|
+| `SPRING_PROFILES_ACTIVE` | `ollama`; use `gemini` for Gemini |
+| `AI_RECOMMENDATION_ENABLED` | `true`; maps to `retail.ai.recommendation.enabled` |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` |
+| `OLLAMA_MODEL_NAME` | `llama3.2:3b` |
+| `GEMINI_API_KEY` | Supplied through the environment for Gemini |
+| `GEMINI_MODEL_NAME` | `gemini-3.5-flash-lite`; override with a tool-capable model supported by your key |
 
-## Implementation notes
+Both configured chat providers use temperature `0.0` and a 512-token output limit. Ollama's timeout is 600 seconds; Gemini's is 60 seconds. These are configuration defaults, not guarantees of deterministic replies or provider availability.
 
-- Implement the agent in `product-service` under a clear package such as `com.retail.product.ai`.
-- Use a LangChain4j `@AiService` interface (e.g. `ProductRecommendationAgent`) with `@MemoryId String sessionId` and `@UserMessage String message` parameters.
-- Expose a small set of Spring-managed LangChain4j tools in a `ProductRecommendationTools` component. Tools are thin wrappers over the product repository and the internal read-only clients described below.
+The `start-all-gemini.bat`, `.ps1` and `.sh` wrappers select the Gemini profile and delegate to the existing launcher. They do not set API keys. `AI_MODEL_PROVIDER`, `AI_MODEL_API_KEY`, `OLLAMA_URL`, `OLLAMA_MODEL` and OpenAI provider selection are not wired options in the current configuration.
+
+The default embedding model is local ONNX AllMiniLmL6V2 when no other `EmbeddingModel` bean exists. Gemini chat selection does not change this embedding model. Provider credentials must not be committed to source control.
 
 ## HTTP Contract
 
-Expose the agent through `product-service` using an HTTP endpoint. Use the existing microservice REST style; the path should be:
+- Method/path: `GET /product/recommendation`
+- Required query parameter: `message`
+- Optional query parameter: `sessionId`
+- No JSON request body is consumed. `RecommendationRequest` exists as a DTO but is not bound by this endpoint.
+- Missing, blank or longer-than-1000-character messages return `400`. The limit is the Java string length, not a count of non-whitespace characters.
+- An omitted or blank `sessionId` generates a UUID. Any supplied nonblank session string is accepted; UUID syntax is not validated.
 
-- Method: `GET` or `POST` (recommend `POST` for longer messages)
-- Path: `/product/recommendation`
-- Request: `RecommendationRequest`
-- Response: `RecommendationResponse`
+Example (Bash):
 
-`RecommendationRequest` example:
+```bash
+curl -G "http://localhost:8082/product/recommendation" --data-urlencode "message=I need a gift for a keen home cook"
+```
 
+Example response:
+
+```json
 {
-	"sessionId": "optional-client-session-id",
-	"message": "I am Alex Smith and I need a gift for a keen home cook"
+  "sessionId": "generated-or-client-supplied-session-id",
+  "message": "A concise recommendation",
+  "products": [
+    {
+      "productId": 10,
+      "name": "Chef Knife",
+      "category": "Kitchen",
+      "price": 49.99,
+      "description": "A catalogue product description"
+    }
+  ]
 }
+```
 
-Validation rules:
+Responses use `ProductResponse`, including `description`. Returned product IDs are looked up against the current projection; unknown IDs are omitted and at most five products are returned.
 
-- `sessionId` is optional; generate a UUID server-side when omitted.
-- `message` is required and must contain 1–1000 non-whitespace characters.
+## Tools, Personalisation and Conversation
 
-Runtime contract with the LLM:
+- Product tools provide embedding search, category listing, category availability and individual product lookup.
+- Customer profile tools resolve supplied customer ID, email or phone using Customer Service, then query `GET /order/customer/{customerId}` in Order Service.
+- Profile tools summarise category/product counts; an order-history-summary tool also returns order count and approximate spending. They do not intentionally return raw customer records or order lists to the model.
+- Name-based customer lookup and a private customer-name endpoint are not implemented.
+- The prompt prioritises the current product request and uses preferences only when requirements cannot be determined from the current message and identifying details are supplied.
+- The model is instructed to search, verify products, rank relevant candidates and return only `{"message":"...","productIds":[...]}`.
+- Conversation memory uses `MessageWindowChatMemory`, at most 20 messages per session, in process only. History is lost on restart. This is not a global bound on the number of sessions.
 
-- The LLM-facing `@AiService` method must return a single JSON object string with the exact shape:
-	{ "message": "...", "productIds": [1,2,3] }
-- The `message` text is free-form but MUST only reference products, categories, prices or descriptions that appear in canonical product records returned by the product tools.
-- The `productIds` array MUST contain numeric IDs that exist in the product repository. The service MUST validate and translate these IDs into canonical `ProductView` objects before returning the HTTP response. Unknown IDs are ignored.
+These ranking and privacy instructions are prompt-level behaviour, not a deterministic ranking engine or an authorisation boundary.
 
-`RecommendationResponse` example (HTTP response body):
+## Embedding Lifecycle
 
-{
-	"sessionId": "uuid",
-	"message": "A concise recommendation mentioning only catalogue items",
-	"products": [
-		{ "productId": 10, "name": "Chef Knife", "category": "Kitchen", "price": 49.99 }
-	]
-}
+- Startup ingestion indexes existing `ProductView` records into an in-memory store, keyed by product ID.
+- Product creation and updates attempt to replace the embedding immediately in the command path. Embedded text contains name, category and description, not price.
+- Create/update embedding refresh is best-effort; failures do not fail the product operation and are logged at DEBUG. The embedding change is not deferred until database commit.
+- Product deletion removes its embedding after database commit using the supported store API. A rolled-back deletion retains it. Removal failure is logged at WARN with product ID and exception type and does not undo the committed deletion.
+- Kafka projection application and offline projection replay do not refresh this index themselves. The embedding store is not persisted across restarts.
+- Embedding failures can fall back to deterministic placeholder vectors; this does not provide equivalent semantic quality to the real model.
 
-The HTTP response must NOT include any PII, order identifiers, internal prompts, model config, or model reasoning.
+## Output Processing and Errors
 
-## Data Sources and Integration
+- The controller extracts the first balanced JSON object to tolerate appended text or metadata.
+- Invalid output is retried once with a stricter instruction. Parsing also accepts several alternate fields/ID formats, and a separate completion attempt can occur for truncated replies.
+- If the agent is disabled, bean construction fails, or the initial model invocation fails, the endpoint returns `503` with a non-sensitive unavailable message.
+- Malformed output after retries can still produce a `200` fallback response; there is no implemented `AUDIT_FEEDBACK:` remediation protocol.
+- Catalogue lookup validates the returned product list, not all claims in the generated explanation. It does not guarantee that prose is accurate, relevant or free of personal information.
+- Customer/order lookup failures can be returned to the model as tool error strings; a uniform, independently verified clarification response is not guaranteed.
 
-- The agent must use `product-service`'s repository/query layer directly (not HTTP to itself) to fetch products by ID, category, partial name, or the complete catalogue as required.
-- Add a read-only `OrderServiceClient` that calls Order Service query endpoints to obtain minimal preference signals (product IDs and category counts). Suggested endpoints:
-	- `GET /order/customer/{customerId}`
-	- `GET /order/customer/email/{email}`
-	- `GET /order/customer/phone/{phone}`
-- Add a read-only `CustomerServiceClient` for identity resolution. For name-based resolution only, add a private internal endpoint such as `GET /customer/name?firstName={firstName}&lastName={lastName}` on `customer-service`; do not expose this in public API docs and do not use it except for non-public personalization logic.
-- Clients and tool methods MUST return only minimal ranking data (product IDs, category counts). Do not return raw order objects or customer records to the LLM or persist them in memory.
+## Privacy and Logging Boundaries
 
-Name resolution rules:
+- User messages are sent to the chat model and retained in ephemeral session memory. They may contain PII; there is no general pre-model or pre-memory redaction step.
+- Tool summaries reduce data exposure but do not establish irreversible anonymisation. Prompts prohibit disclosure of customer/order details; these instructions are not a hard privacy guarantee.
+- Authentication, customer-identity verification and session ownership checks are not implemented. Use synthetic data in demos, especially with a remote provider.
+- Model-content logging is off by default. JVM system properties `product.recommendation.logRawReplies` and `product.recommendation.logModelContent` opt into DEBUG logging in the controller/listener.
+- Existing logging redaction is best-effort (including email-like strings, long numbers and UUIDs); it does not cover all PII. Keep content logging disabled outside controlled development.
+- LangChain4j logging defaults to INFO; Gemini request/response logging defaults to false.
+- Some tool fallback paths log the search query and matched product names at INFO independently of the model-content switches. These switches therefore do not guarantee that user-derived text never reaches logs.
 
-- If a supplied name matches zero or multiple customers, do NOT use order history. Prompt the user for email or phone.
-- If identity resolution fails or order history is unavailable, fall back to non-personalised recommendations and do not reveal the reason to the user.
+## Existing Tests and Remaining Work
 
-## Recommendation Behaviour and System Prompt
+`RecommendationAgentControllerTest` and `RecommendationAgentControllerIntegrationTest` cover request validation, agent availability and model-output handling using a mocked recommendation agent. Product integration tests cover embedding removal after deletion and retention on transaction rollback.
 
-The system prompt and tool contracts must enforce the following:
-
-1. Use friendly, helpful, concise language.
-2. Recommend only products returned by Product Service tools.
-3. Include only product fields in results: `productId`, `name`, `category`, `price`.
-4. Never invent products, prices, categories, availability, or customer/order details.
-5. Treat supplied identifiers as internal signals only; never echo them back in responses.
-6. Use session messages to interpret follow-ups and retain preferences within the session.
-7. Ask a focused clarification when the request is ambiguous or when a name does not uniquely identify a customer.
-8. Detect whether the request is personal or a gift recommendation and adapt ranking accordingly.
-9. Treat PII and internal tool outputs as confidential; never send them to the model.
-10. Decline non-product or data-disclosure requests politely and refuse to reveal PII.
-
-## Ranking Rules
-
-- Filter candidate products by stated needs: category, name fragments, price range, and explicit exclusions.
-- Determine intent: personal vs gift. For personal recommendations, incorporate ordering-history signals with higher weight; for gifts, prioritise recipient constraints and stated preferences.
-- Do not recommend a previously purchased product unless it independently matches the current request.
-- Product relevance and explicit user constraints take precedence over ordering history.
-- Return at most five products, ordered most-to-least relevant.
-- When no suitable products are found, clearly say so and ask one focused clarification question.
-
-## Privacy, Security and Logging
-
-- PII may be used only transiently for the current request and must be redacted before storing in memory. Do not persist PII across restarts.
-- Never send PII or raw order data to the LLM. Convert identity and order history into a minimal preference profile in application code before supplying signals to the model.
-- Tools that access customer or order services MUST return only minimal aggregation (product IDs, category counts).
-- Logs must contain only a correlation ID (generated session ID), outcome, and non-sensitive error category. Do NOT log prompts, PII, customer IDs, order data, or model prompts/responses.
-
-## Error Handling
-
-- `400 Bad Request` for invalid input (missing/blank `message` or invalid field values).
-- `503 Service Unavailable` when AI is disabled, misconfigured, or no model provider is reachable; the message must be non-sensitive and not require API keys when AI is disabled.
-- If product validation fails or internal services are unavailable, return a helpful clarification fallback; do not leak internal endpoints or stack traces.
-- Identity-resolution failures must not block non-personalised recommendations.
-
-## Tests and Acceptance Criteria
-
-Add focused unit and integration tests in `product-service` covering:
-
-- Missing or blank `message` returns `400`.
-- Product responses include only `productId`, `name`, `category`, and `price` from canonical product data.
-- Vague or ambiguous requests produce a friendly clarification question and do not invent products.
-- Follow-up requests reuse session context when `sessionId` is unchanged; different `sessionId` receives no prior context.
-- Supplying email or phone triggers `OrderServiceClient` to return a minimal preference profile that influences ranking.
-- A uniquely resolved name may influence ranking; ambiguous/unknown names prompt for email/phone without revealing matches.
-- Personal recommendations weight order-history preferences higher than gift recommendations for the same request and history.
-- Responses never contain PII, customer IDs, order IDs, or raw ordering history.
-- Auditor remediation path: when a model response is rejected, the server may requery the agent with `AUDIT_FEEDBACK:` and tests must cover both successful remediation and exhausted-retry fallback.
-- Product-only recommendations still succeed when customer lookup fails.
-- Unsafe or non-product requests do not invoke tools that can disclose internal data.
-- AI-disabled configuration returns `503` and tests must not require an API key (use mocked `ChatLanguageModel`).
-
-Tests must use mocked `ChatLanguageModel` and mocked internal clients; they must not call external LLMs or real customer/order services.
-
-## Operational Notes
-
-- Document AI configuration in `product-service/AI_MODEL_CONFIG.md` and local Ollama setup in `product-service/OLLAMA_SETUP.md`.
-- Keep dependency and configuration changes isolated to `product-service`.
+These tests are not live-provider, recommendation-quality, privacy-proof or multi-service end-to-end evidence. Pre-model PII redaction, verified identity/session access, stricter output auditing, transactional create/update indexing, replay-driven index refresh and live-provider evaluation remain separate enhancements.
 
 ## Out of Scope
 
-- Authentication and authorisation.
-- Product purchasing, basket management, or command actions.
-- Persistent conversation logs or cross-restart analytics.
-- Stock, delivery, or order-tracking advice.
-- Disclosure of personalised rationale or raw ordering history in responses.
+- Purchasing, basket management or other write tools.
+- External stock, delivery or order-tracking advice.
+- Persistent conversation logs or cross-restart memory.
+- Automatic implementation of the proposed trending-product and revenue analytics.

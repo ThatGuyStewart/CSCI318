@@ -39,12 +39,15 @@
 |`correlationId`|UUID, nullable|Links a request/workflow when supplied|
 |`causationId`|UUID, nullable|Event or command that caused this event, when supplied|
 |`payload`|JSON|Event-specific data (state change fields)|
+|`schemaVersion`|Integer|Kafka/internal envelope schema version; defaults to 1|
+
+The REST `DomainEventEnvelope` response contains the other fields above, not `schemaVersion` or a deprecated `timestamp` field. Persisted records are converted to the current internal envelope (schema version 1) for publication/replay.
 
 ### 
 
 ### 3.2 Event Stream Identity
 
-* Stream key = `aggregateType` + `aggregateId`
+* Kafka record key = `aggregateType` + `":"` + `aggregateId`
 
 ### 
 
@@ -53,7 +56,7 @@
 |Owner: Aggregate, Entity/Value Object|Event Type|Triggering Behavior|Key Payload Fields|
 |-|-|-|-|
 |`Customer`, `Customer`|`CustomerCreatedEvent`|Creation of `Customer` record|`customerId`, `name`, `email`, `phone`, `contactMethod`, `address`|
-|`Customer`, `Customer`|`CustomerUpdatedEvent`|Update a `Customer` record|`customerId`, Any updated fields (`name`, `email`, `phone`, `contactMethod`, `address`)|
+|`Customer`, `Customer`|`CustomerUpdatedEvent`|Update a `Customer` record|Full profile snapshot: `customerId`, `name`, `email`, `phone`, `contactMethod`, `address`|
 |`Customer`, `Customer`|`CustomerDeletedEvent`|Delete a `Customer` record|`customerId`|
 |`Customer`, `Basket`|`BasketItemAddedEvent`|Item added to `Customer` `Basket`|`customerId`, `items<`productId`, item(Any updated fields (`name`, `price`, `quantity`, `subtotal`))>, `total`|
 |`Customer`, `Basket`|`BasketItemRemovedEvent`|Item removed from `Customer` `Basket`|`customerId`, `items<`productId`, item(`quantity`, `subtotal`)>, `total`|
@@ -61,7 +64,7 @@
 |`Customer`, `Basket`|`BasketClearedEvent`|Explicitly clear a non-empty basket|`customerId`, `items` (empty), `total` (zero)|
 |`Customer`, `Basket`|`BasketClearedAfterOrderEvent`|Customer Service consumes `BasketUsedForOrderEvent` and clears the basket|`customerId`, `items` (empty), `total` (zero); `causationId` is the Order event ID|
 |`Product`, `Product`|`ProductCreatedEvent`|Creation of `Product` record|`productId`, `name`, `category`, `price`, `description`|
-|`Product`, `Product`|`ProductUpdatedEvent`|Update a `Product` record|`productId`, Any updated fields (`name`, `category`, `price`, `description`)|
+|`Product`, `Product`|`ProductUpdatedEvent`|Update a `Product` record|Full product snapshot: `productId`, `name`, `category`, `price`, `description`|
 |`Product`, `Product`|`ProductDeletedEvent`|Delete a `Product` record|`productId`|
 |`Order`|`OrderPlacedEvent`|Creation of `Order` record|`orderId`, `customerId`, `address`, `items`, `total`, `status`|
 |`Order`|`BasketUsedForOrderEvent`|A created `Order` uses a `Customer` `Basket` is used for `items` contents|Full Order snapshot (`orderId`, `customerId`, `address`, `items`, `total`, `status`)|
@@ -73,6 +76,8 @@
 \---
 
 ## 4. Current Implementation and Replay
+
+Replay is disabled by default (`retail.projection.replay.enabled=false`). Normal startup reuses the existing H2 projection and Kafka offsets; it does not automatically rebuild from the event log. Replay rebuilds projections/checkpoints, not mutable aggregates, and does not republish old events or refresh Product's embedding index.
 
 Persisted events accompany mutable entity writes; the event logs are not yet the authoritative aggregate stores. Services use Kafka Streams application IDs `customer-projection-v1`, `product-projection-v1`, `order-projection-v1`, and `notification-projection-v1` to apply their own event topics to `CustomerView`, `ProductView`, `OrderSummaryView`, and `NotificationView`. Events are keyed by aggregate type and ID; processing is at-least-once, and database checkpoints by aggregate ID/version make retries and duplicate delivery idempotent.
 

@@ -15,7 +15,9 @@
 |**Order Service**|O2|Get/update Orders|Administrator|
 |**Order Service**|O3|Get Order events|Administrator|
 |**Notification Service**|N1|Create/get Notifications|Administrator|
+|**Product Service**|AI|Conversational product recommendations|Customer|
 
+Role names describe intended actors; the prototype does not enforce authentication or authorisation.
 
 ## Customer Service
 
@@ -147,20 +149,32 @@
 * **As an** administrator, **I want to** view all notifications issued between two dates (inclusive)
 * **As an** administrator, **I want to** view a notification by supplying a notification ID
 
+Notifications are recorded with an Email/Phone type; external delivery is not implemented. Order placement, successful cancellation and failed cancellation create notifications asynchronously. Ordinary status updates do not.
 
+## AI Product Recommendations
+
+* **As a** Customer, **I want to** describe product needs in natural language and receive up to five catalogue products.
+* **As a** Customer, **I want to** refine recommendations using the same session ID.
+* **As a** Customer, **I want to** optionally use a preference summary derived from previous orders.
+
+See [7-AI-agent.md](7-AI-agent.md) for the implemented contract, configuration and limitations. Name-based identity lookup and guaranteed PII redaction are not implemented.
+
+## Proposed Analytics (Not Implemented)
+
+The group report proposes trending-product and order/revenue analytics. These are future work, not delivered API features. Kafka Streams currently maintains each service's read projection.
 
 ## Event-Sourcing and CQRS Acceptance Criteria
 
-For every state-changing user story:
+For successful operations that change persisted state (no-op basket operations and broadcasts to no recipients need not append an event):
 
 - The service appends an immutable domain event before acknowledging success.
-- Events have a unique `eventId`, aggregate type and ID, aggregate version, event type, `occurredAt`, correlation ID, causation ID, and payload.
-- Query endpoints read from service-owned projections, not by reconstructing response data from command-side entities.
+- Kafka events have a unique `eventId`, aggregate type and ID, aggregate version, event type, `occurredAt`, nullable correlation/causation IDs, payload and `schemaVersion` (currently 1). REST event-history DTOs do not expose `schemaVersion`.
+- Resource queries use service-owned projections except basket reads, which use the Basket table with a CustomerView existence check. Event-history queries read persisted event records.
 - Projection-backed query endpoints may temporarily lag after a successful command. Command responses use the status codes documented in the API contract; the current implementation does not return `202 Accepted` solely because a projection is catching up.
 - Event consumers are idempotent and tolerate duplicate delivery.
+- Projections use aggregate-version checkpoints; cross-service listeners use processed-event IDs.
+- Basket-backed checkout clears the basket asynchronously; explicit item-list checkout does not clear it. Ineligible cancellation returns HTTP 200 with the unchanged order status and records `OrderCancelFailedEvent`.
 
 
 
 \*\*End of file\*\*
-
-

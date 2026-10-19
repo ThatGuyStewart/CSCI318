@@ -22,12 +22,14 @@ This document defines how Services apply CQRS, including:
 
 \---
 
-## 3\. Application Service Split
+## 3\. Logical Application Service Responsibilities
+
+Command/query names in this document are a conceptual catalogue, not implemented class names. Controllers currently share `@Service` implementations; there is no separate command/query bus or handler-class hierarchy.
 
 ### 3.1 Command Application Service
 
 * Accepts command requests from API endpoints.
-* Routes to command handlers.
+* Calls the corresponding application-service operation.
 * Loads and executes aggregate behavior.
 * Persists changes (event append or CRUD write).
 * Publishes domain events for read model updates and integrations.
@@ -35,13 +37,13 @@ This document defines how Services apply CQRS, including:
 ### 3.2 Query Application Service
 
 * Accepts read requests from API endpoints.
-* Routes to query handlers.
-* Reads from projection/read stores only.
+* Calls the corresponding application-service operation.
+* Reads projections for most resource queries, persisted records for event history, and mutable Basket/BasketItem data for basket queries.
 * Shapes response DTOs for API contracts.
 
 ### Constraint
 
-* Queries must not call domain mutation methods.
+* Queries should not mutate business aggregates. Current exceptions: basket GET can create a missing basket, and recommendations update in-memory conversation state.
 
 \---
 
@@ -50,7 +52,7 @@ This document defines how Services apply CQRS, including:
 ### 4.1 Write Model (Aggregates)
 
 * Mutable command-side entities with persisted domain-event records: `Customer`, `Product`, `Order`.
-* CRUD aggregate: `Notification`.
+* CRUD aggregate with persisted creation events: `Notification`.
 
 ### 4.2 Read Model (Projections)
 
@@ -81,6 +83,8 @@ This document defines how Services apply CQRS, including:
 
 ## 6\. Command Catalog
 
+The persistence column below denotes the event log, not the sole write store. Commands also persist mutable entities and, when enabled, an outbox record in the same database transaction. Notification creation likewise persists its event; it is not publish-only. No-op basket operations and broadcasts to no recipients need not append an event.
+
 |Command|Target Aggregate(s)|Story|Output Events|Persistence|
 |-|-|-|-|-|
 |`CreateCustomerCommand`|`Customer`|C1|`CustomerCreatedEvent`|Event store|
@@ -95,9 +99,9 @@ This document defines how Services apply CQRS, including:
 |`CreateOrderCommand`|`Order`|O1|`OrderPlacedEvent`, `BasketUsedForOrderEvent` (if from basket)|Event store|
 |`CancelOrderCommand`|`Order`|O1|`OrderCancelledEvent` (if cancelled successfully), `OrderCancelFailedEvent` (if order could not be cancelled)|Event store|
 |`UpdateOrderStatusCommand`|`Order`|O2|`OrderStatusChangedEvent`|Event store|
-|`CreateNotificationCommand`|`Notification`|N1|`NotificationCreatedEvent`|CRUD store + Event publish|
-|`CreateNotificationBroadcastCommand`|`Notification`|N1|`NotificationCreatedEvent` (multiple)|CRUD store + Event publish|
-|`CreateNotificationAreaBroadcastCommand`|`Notification`|N1|`NotificationCreatedEvent` (filtered by area)|CRUD store + Event publish|
+|`CreateNotificationCommand`|`Notification`|N1|`NotificationCreatedEvent`|Entity + event log + outbox|
+|`CreateNotificationBroadcastCommand`|`Notification`|N1|`NotificationCreatedEvent` (multiple)|Entity + event log + outbox|
+|`CreateNotificationAreaBroadcastCommand`|`Notification`|N1|`NotificationCreatedEvent` (filtered by area)|Entity + event log + outbox|
 
 Command responses confirm validation and event persistence. The API response may include the created or updated resource as a DTO; subsequent GET requests read projections and can temporarily lag the command.
 
@@ -114,7 +118,7 @@ Command responses confirm validation and event persistence. The API response may
 |`ListCustomersByStateQuery(state)`|C2|`CustomerView`|Eventual||
 |`ListCustomersByCountryQuery(country)`|C2|`CustomerView`|Eventual||
 |`ListCustomersByPostcodeQuery(postcode)`|C2|`CustomerView`|Eventual||
-|`GetCustomerBasketQuery(customerId)`|C3|`CustomerView`|Eventual||
+|`GetCustomerBasketQuery(customerId)`|C3|Basket/BasketItem, with CustomerView existence check|Mixed|Basket contents are command-side data; existence and cross-service updates can lag|
 |`GetCustomerEventsQuery(customerId, dateRange?)`|C4|Event store|Strong|Returns persisted `DomainEventEnvelope` records|
 |`ListAllCustomerEventsQuery(dateRange?)`|C4|Event store|Strong|Returns persisted `DomainEventEnvelope` records|
 |`GetProductByIdQuery(productId)`|P2|`ProductView`|Eventual||
@@ -131,10 +135,22 @@ Command responses confirm validation and event persistence. The API response may
 |`ListOrdersByProductQuery(productId)`|O2|`OrderSummaryView`|Eventual||
 |`GetOrderEventsQuery(orderId, dateRange?)`|O3|Event store|Strong|Returns persisted `DomainEventEnvelope` records|
 |`ListAllOrderEventsQuery(dateRange?)`|O3|Event store|Strong|Returns persisted `DomainEventEnvelope` records|
-|`ListOrderEventsByCustomerQuery(customerId, dateRange?)`|O3|Event store|Strong|Returns persisted `DomainEventEnvelope` records|
-|`GetNotificationByIdQuery(notificationId)`|N1|`NotificationView`|Strong||
-|`ListNotificationsByCustomerQuery(customerId, dateRange?)`|N1|`NotificationView`|Strong||
-|`ListNotificationsByCustomerEmailQuery(email, dateRange?)`|N1|`NotificationView`|Strong||
-|`ListNotificationsByCustomerPhoneQuery(phone, dateRange?)`|N1|`NotificationView`|Strong||
-|`ListAllNotificationsQuery(dateRange?)`|N1|`NotificationView`|Strong||
-|`ListNotificationsByDateQuery(date)`|N1|`NotificationView`|Strong||
+|`ListOrderEventsByCustomerQuery(customerId, dateRange?)`|O3|OrderSummaryView IDs then event store|Mixed|Event records are direct; discovery of orders is eventual|
+|`GetNotificationByIdQuery(notificationId)`|N1|`NotificationView`|Eventual||
+|`ListNotificationsByCustomerQuery(customerId, dateRange?)`|N1|`NotificationView`|Eventual||
+|`ListNotificationsByCustomerEmailQuery(email, dateRange?)`|N1|`NotificationView`|Eventual||
+|`ListNotificationsByCustomerPhoneQuery(phone, dateRange?)`|N1|`NotificationView`|Eventual||
+|`ListAllNotificationsQuery(dateRange?)`|N1|`NotificationView`|Eventual||
+|`ListNotificationsByDateQuery(date)`|N1|`NotificationView`|Eventual||
+|`ListNotificationsByDateRangeQuery(from, to)`|N1|`NotificationView`|Eventual||
+|`RecommendProductsQuery(message, sessionId?)`|AI|ProductView, embedding store, optional Customer/Order REST tools|Mixed|Read-only business tools; model output is not authoritative data|
+
+## 8. Wiring, Consistency and Errors
+
+With streams enabled, command transactions persist write entities, events and outbox records. The dispatcher publishes asynchronously and the owning Kafka Streams topology applies projections. With streams disabled, the command path applies its own projection synchronously. Cross-service listeners are independently controlled by `retail.events.consumer.enabled`.
+
+At-least-once delivery is handled by aggregate-version projection checkpoints and processed-event IDs for cross-service listeners. Kafka ordering is per partition/key; outbox retries and concurrent publishers do not establish an unconditional aggregate-version publication-order guarantee.
+
+Resource GETs can briefly return stale data or 404 after successful commands. Basket clearing and notification creation after checkout are asynchronous. Database-event replay is an offline maintenance operation, not full aggregate reconstruction; see [5-event-sourcing.md](5-event-sourcing.md).
+
+Handled request validation, missing resources and uniqueness conflicts use 400, 404 and 409 respectively. Downstream REST/service failures mapped by the application and unavailable recommendations use 503; other unhandled exceptions use 500. Ineligible cancellation is a business outcome returning 200 with unchanged status and `OrderCancelFailedEvent`, not a transport error. Status updates validate the enum but do not enforce a forward-only workflow.

@@ -37,14 +37,14 @@ The project is structured as a multi-module repository:
 ## Technology Stack
 
 * **JDK \& Build**: Java 21, Apache Maven (Multi-module POM)
-* **Framework**: Spring Boot
+* **Framework**: Spring Boot 3.5.16
 
   * **Controller Layer**: `@RestController`
   * **Service Layer**: `@Service`
   * **Domain Layer**: `@Entity`
   * **Data Access Layer**: `@Repository`
 * **Database**: Each service uses its own file-backed H2 database in the local configuration.
-* **Messaging**: Apache Kafka with service-owned event topics, Spring Kafka consumers, and a transactional outbox.
+* **Messaging**: Apache Kafka with service-owned event topics, Spring Kafka listeners, Kafka Streams projections, and a transactional outbox.
 * **Inter-Service Compatibility**: DTOs to be used for communication between services
 * **AI-Powered**: LangChain4j supports read-only product recommendations in Product Service.
 * **Unit \& Integration Testing**: `MockMvc`, `@SpringBootTest`, `JUnit 5`
@@ -76,9 +76,27 @@ The project is structured as a multi-module repository:
 * CustomerView replay rebuilds profile and basket-total state from Customer events, then reconciles the current basket total from the mutable Basket table. This preserves correct totals for historical order-driven basket clears that predate the local `BasketClearedAfterOrderEvent`.
 * Aggregate reconstruction, snapshots, and making event logs the authoritative write model remain separate future work.
 
+## REST and Integration Boundaries
+
+* All four services expose client-facing REST APIs on ports 8081 (Customer), 8082 (Product), 8083 (Order), and 8084 (Notification).
+* Customer calls Product for basket product lookup. Order calls Customer for profiles/baskets and Product for explicit order items. Notification calls Customer for notification recipients.
+* Product recommendation tools query Customer and Order over REST for preference summaries.
+* Customer's cross-service listeners consume Product updates/deletes to maintain baskets and `BasketUsedForOrderEvent` to clear baskets asynchronously.
+* Notification's listener creates records for `OrderPlacedEvent`, `OrderCancelledEvent` and `OrderCancelFailedEvent`. Ordinary status changes do not trigger notifications; the order workflow does not call Notification directly.
+* Notification records select an Email/Phone type but do not deliver messages through an external email/SMS provider.
+* Basket reads use the mutable Basket table after checking the Customer projection; event-history reads use persisted event records. Not every GET is served solely from a projection.
+* The local broker has no configured persistent volume. H2 data can survive removal of the Kafka container, but Kafka topics/offsets are not guaranteed to do so.
+* Authentication and authorisation are not implemented. Actor labels such as Administrator do not imply enforced roles.
+
+## AI and Embedding Boundaries
+
+* Ollama is the default chat profile; Gemini is selectable with `SPRING_PROFILES_ACTIVE=gemini` or the Gemini launcher wrappers. `AI_RECOMMENDATION_ENABLED` controls the recommendation feature.
+* The in-memory embedding store is populated from ProductView at startup and refreshed best-effort on product creation/update. Product deletion removes its embedding after transaction commit; rollback retains it.
+* Projection replay does not itself refresh embeddings. Catalogue validation applies to returned product-list entries, not all model-generated prose. See [AI specification](7-AI-agent.md) for provider settings and privacy limitations.
 
 
 ## Future Considerations
 
 * Define a production database and Kafka deployment, event retention, schema evolution, and operational monitoring.
 * Evaluate full event sourcing separately from event-driven projection rebuilding.
+* Five-minute trending-product and hourly order/revenue analytics are proposed report requirements, not implemented topologies or API endpoints. Existing streaming maintains read projections, not those analytical aggregates.

@@ -39,6 +39,15 @@ class ProductServiceIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore<dev.langchain4j.data.segment.TextSegment> embeddingStore;
+
+    @Autowired
+    private org.springframework.transaction.PlatformTransactionManager transactionManager;
+
+    @Autowired
+    private com.retail.product.service.ProductService productService;
+
         @Autowired
         private ProductViewRepository productViewRepository;
 
@@ -240,11 +249,39 @@ class ProductServiceIntegrationTest {
 
         ProductResponse created = objectMapper.readValue(responseJson, ProductResponse.class);
 
+        org.junit.jupiter.api.Assertions.assertTrue(embeddingIds().contains(created.getProductId().toString()));
+
         mockMvc.perform(delete("/product/" + created.getProductId()))
                 .andExpect(status().isNoContent());
 
+        org.junit.jupiter.api.Assertions.assertFalse(embeddingIds().contains(created.getProductId().toString()));
+
         mockMvc.perform(get("/product/" + created.getProductId()))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void rolledBackProductDeletionRetainsEmbedding() throws Exception {
+        ProductResponse created = productService.createProduct(new ProductCreateRequest(
+                "Rollback Embedding Product", ProductCategory.Tools, 25.0, "Retained on rollback"));
+        String embeddingId = created.getProductId().toString();
+        org.junit.jupiter.api.Assertions.assertTrue(embeddingIds().contains(embeddingId));
+
+        new org.springframework.transaction.support.TransactionTemplate(transactionManager)
+                .executeWithoutResult(transaction -> {
+                    productService.deleteProduct(created.getProductId());
+                    transaction.setRollbackOnly();
+                });
+
+        org.junit.jupiter.api.Assertions.assertTrue(embeddingIds().contains(embeddingId));
+        mockMvc.perform(get("/product/" + created.getProductId()))
+                .andExpect(status().isOk());
+    }
+
+    private java.util.List<String> embeddingIds() throws Exception {
+        return objectMapper.readTree(embeddingStore.serializeToJson()).findValues("id").stream()
+                .map(com.fasterxml.jackson.databind.JsonNode::asText)
+                .toList();
     }
 
     @Test
