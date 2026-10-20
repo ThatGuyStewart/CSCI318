@@ -67,6 +67,8 @@ Gemini agent configuration:
 
 7. In Windows PowerShell, use `curl.exe` to avoid the `curl` alias for `Invoke-WebRequest`. Command Prompt and Bash do not have this PowerShell alias.
 
+Windows batch launchers must be saved and committed with CRLF line endings. `.gitattributes` disables Git's text conversion for `.bat` files so their CRLF bytes are preserved in both clones and GitHub **Download ZIP** archives; a checkout-only `eol=crlf` rule does not fix ZIP downloads. If Command Prompt reports `The system cannot find the batch label specified - ensureServicePortsAvailable` in an older download, open `start-all.bat` in VS Code, click the line-ending indicator in the status bar, select **CRLF**, save, and rerun the launcher. The label exists; LF line endings can prevent Command Prompt from finding it. When editing any `.bat` file, keep its line-ending setting at **CRLF**.
+
 The default AI profile is `ollama`. For recommendations, start Ollama and download the configured model with `ollama pull llama3.2:3b`. To run without recommendations, set `AI_RECOMMENDATION_ENABLED=false`. See [AI configuration](#ai-configuration) for Gemini setup.
 ---
 

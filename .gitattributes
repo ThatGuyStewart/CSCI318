@@ -1,0 +1,2 @@
+# Preserve committed CRLF bytes so GitHub ZIP downloads work as well as clones.
+*.bat -text whitespace=trailing-space,space-before-tab,cr-at-eol
